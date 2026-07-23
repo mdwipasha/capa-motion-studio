@@ -1,35 +1,38 @@
-import { memo } from "react";
+import { TransformControls } from "@react-three/drei";
+import { useEffect, useRef } from "react";
+import type { Group } from "three";
+import { degreesToRadians } from "@/lib/pose";
+import { getBoneChildren, getRigDefinition } from "@/lib/rig";
+import { useBoneRotation, usePoseStore } from "@/stores/pose-store";
+import { useRigStore } from "@/stores/rig-store";
+import { useMotionStore } from "@/stores/motion-store";
+import type { RigBoneDefinition, RigDefinition } from "@/types/rig";
 import type { RigType } from "@/types/project";
 
-interface RigPart { readonly key: string; readonly position: [number, number, number]; readonly scale: [number, number, number]; }
+interface RigNodeProps { readonly bone: RigBoneDefinition; readonly definition: RigDefinition; }
 
-const r6Parts: readonly RigPart[] = [
-  { key: "head", position: [0, 2.8, 0], scale: [1.15, 1.15, 1.15] },
-  { key: "torso", position: [0, 1.2, 0], scale: [1.45, 1.9, 0.8] },
-  { key: "left-arm", position: [-1.25, 1.25, 0], scale: [0.65, 1.85, 0.7] },
-  { key: "right-arm", position: [1.25, 1.25, 0], scale: [0.65, 1.85, 0.7] },
-  { key: "left-leg", position: [-0.45, -1.15, 0], scale: [0.75, 2, 0.75] },
-  { key: "right-leg", position: [0.45, -1.15, 0], scale: [0.75, 2, 0.75] }
-];
+function RigNode({ bone, definition }: RigNodeProps) {
+  const group = useRef<Group>(null);
+  const rotation = useBoneRotation(bone.id);
+  const selected = useRigStore((state) => state.selectedBoneId === bone.id);
+  const selectBone = useRigStore((state) => state.selectBone);
+  const setBoneRotation = usePoseStore((state) => state.setBoneRotation);
+  const children = getBoneChildren(definition, bone.id);
+  const contents = <group name={bone.id} position={bone.position} ref={group} rotation={degreesToRadians(rotation)}><mesh castShadow onClick={(event) => { event.stopPropagation(); selectBone(bone.id); }} scale={bone.scale}><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color={selected ? "#fbbf24" : "#8b5cf6"} emissive={selected ? "#78350f" : "#281452"} emissiveIntensity={selected ? 0.6 : 0.35} metalness={0.1} roughness={0.55} wireframe /></mesh>{children.map((child) => <RigNode bone={child} definition={definition} key={child.id} />)}</group>;
+  if (!selected) return contents;
+  return <TransformControls mode="rotate" onObjectChange={() => {
+    const nextRotation = group.current?.rotation;
+    if (!nextRotation) return;
+    const frame = useMotionStore.getState().currentFrame;
+    setBoneRotation(bone.id, { x: nextRotation.x * 180 / Math.PI, y: nextRotation.y * 180 / Math.PI, z: nextRotation.z * 180 / Math.PI }, frame);
+  }}>{contents}</TransformControls>;
+}
 
-const r15Parts: readonly RigPart[] = [
-  { key: "head", position: [0, 3.1, 0], scale: [1, 1, 1] },
-  { key: "upper-torso", position: [0, 1.75, 0], scale: [1.35, 1.1, 0.7] },
-  { key: "lower-torso", position: [0, 0.55, 0], scale: [1.2, 0.85, 0.65] },
-  { key: "left-upper-arm", position: [-1.05, 1.8, 0], scale: [0.55, 1, 0.6] },
-  { key: "left-lower-arm", position: [-1.05, 0.65, 0], scale: [0.5, 0.9, 0.55] },
-  { key: "right-upper-arm", position: [1.05, 1.8, 0], scale: [0.55, 1, 0.6] },
-  { key: "right-lower-arm", position: [1.05, 0.65, 0], scale: [0.5, 0.9, 0.55] },
-  { key: "left-upper-leg", position: [-0.42, -0.55, 0], scale: [0.65, 1.1, 0.65] },
-  { key: "left-lower-leg", position: [-0.42, -1.75, 0], scale: [0.6, 1, 0.6] },
-  { key: "right-upper-leg", position: [0.42, -0.55, 0], scale: [0.65, 1.1, 0.65] },
-  { key: "right-lower-leg", position: [0.42, -1.75, 0], scale: [0.6, 1, 0.6] }
-];
-
-interface RigPlaceholderProps { readonly rigType: RigType; }
-
-/** Replace this presentation-only mesh group with a loaded rig adapter later. */
-export const RigPlaceholder = memo(function RigPlaceholder({ rigType }: RigPlaceholderProps) {
-  const parts = rigType === "R6" ? r6Parts : r15Parts;
-  return <group name={`roblox-${rigType.toLowerCase()}-placeholder`} position={[0, 0.15, 0]}>{parts.map((part) => <mesh castShadow key={part.key} position={part.position} scale={part.scale}><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color="#8b5cf6" emissive="#281452" emissiveIntensity={0.35} metalness={0.1} roughness={0.55} wireframe /></mesh>)}</group>;
-});
+/** Data-driven R6/R15 placeholder renderer. Replace only the mesh layer when loading Roblox assets later. */
+export function RigPlaceholder({ rigType }: { readonly rigType: RigType }) {
+  const loadRig = useRigStore((state) => state.loadRig);
+  const definition = getRigDefinition(rigType);
+  const rootBones = getBoneChildren(definition, null);
+  useEffect(() => { loadRig(rigType); }, [loadRig, rigType]);
+  return <group name={`roblox-${rigType.toLowerCase()}-rig`}>{rootBones.map((bone) => <RigNode bone={bone} definition={definition} key={bone.id} />)}</group>;
+}

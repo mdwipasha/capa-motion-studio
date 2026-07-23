@@ -17,6 +17,7 @@ interface MotionState extends MotionSnapshot {
   pause: () => void;
   stop: () => void;
   addKeyframe: () => void;
+  ensureKeyframeAt: (frame: number) => void;
   removeSelectedKeyframe: () => void;
   updateSelectedKeyframeFrame: (frame: number) => void;
   selectKeyframe: (keyframeId: string | null) => void;
@@ -61,6 +62,13 @@ export const useMotionStore = create<MotionState>((set) => ({
   addKeyframe: () => set((state) => {
     if (state.motionData.timeline.keyframes.some((keyframe) => keyframe.frame === state.currentFrame)) return state;
     const keyframe: MotionKeyframe = { id: crypto.randomUUID(), frame: state.currentFrame };
+    const keyframes = [...state.motionData.timeline.keyframes, keyframe].sort((left, right) => left.frame - right.frame);
+    return withHistory(state, { motionData: { ...state.motionData, timeline: { ...state.motionData.timeline, keyframes } }, currentFrame: state.currentFrame, selectedKeyframeId: keyframe.id });
+  }),
+  ensureKeyframeAt: (frame) => set((state) => {
+    const nextFrame = clampFrame(frame, state.motionData.timeline.fps, state.motionData.timeline.duration);
+    if (state.motionData.timeline.keyframes.some((keyframe) => keyframe.frame === nextFrame)) return state;
+    const keyframe: MotionKeyframe = { id: crypto.randomUUID(), frame: nextFrame };
     const keyframes = [...state.motionData.timeline.keyframes, keyframe].sort((left, right) => left.frame - right.frame);
     return withHistory(state, { motionData: { ...state.motionData, timeline: { ...state.motionData.timeline, keyframes } }, currentFrame: state.currentFrame, selectedKeyframeId: keyframe.id });
   }),

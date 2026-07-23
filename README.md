@@ -15,7 +15,7 @@ CapaMotion is a local-first desktop application for creating Roblox animation pr
 ```
 src/
   components/       # reusable UI and system components
-  features/         # feature-owned UI (project, editor, preview, motion)
+  features/         # feature-owned UI (project, editor, preview, motion, rig)
   hooks/            # React hooks
   lib/              # shared utilities and domain helpers
   stores/           # Zustand stores by concern
@@ -44,6 +44,8 @@ For browser-only development, use `pnpm dev`. Build the frontend with `pnpm buil
 - Feature-separated project, workspace, camera, preview, and settings stores, plus an error boundary
 - Motion Data foundation with timeline, FPS, duration, current frame, and keyframes
 - Play, pause, stop, frame navigation, editable keyframes, and basic undo/redo
+- Data-driven R6/R15 placeholder rig loader with expandable bone hierarchy
+- Bone selection, synced viewport highlighting, rotation gizmo, and pose data by frame
 
 ## Current features
 
@@ -53,6 +55,8 @@ For browser-only development, use `pnpm dev`. Build the frontend with `pnpm buil
 - Timeline panel with a dedicated, expandable editor area
 - Interactive timeline with frame ruler, playhead, selectable keyframe markers, and playback settings
 - Keyboard shortcuts: Space, Left/Right Arrow, Delete, Ctrl+Z, and Ctrl+Shift+Z
+- Bone hierarchy with expand/collapse and synced hierarchy/viewport selection
+- Bone inspector for position, rotation, and read-only scale; rotation changes are saved as poses at the active frame
 
 ## Screenshot
 
@@ -60,9 +64,15 @@ _Workspace screenshot placeholder. A captured desktop screenshot will be added w
 
 ## Next milestone
 
-Connect motion data to rig bones, then add persistent `.rma` project files and animation preview playback.
+Add persistent `.rma` project files, then evolve the pose editor with constraints and export-ready motion data.
 
 ## Changelog
+
+### 0.4.0 - Rig and pose editor
+
+- Added data-driven Roblox R6/R15 rig definitions and a reusable placeholder rig loader.
+- Added expandable bone hierarchy, synchronized bone selection, and viewport rotation gizmo.
+- Added pose data per frame, automatic timeline keyframe creation, and frame-based pose restoration.
 
 ### 0.3.0 - Motion editor foundation
 

@@ -43,8 +43,8 @@
 * [x] Pause
 * [x] Stop
 * [x] Keyframe
-* [ ] Bone Selection
-* [ ] Bone Rotation
+* [x] Bone Selection
+* [x] Bone Rotation
 * [x] Undo
 * [x] Redo
 
@@ -53,7 +53,7 @@
 ### Preview
 
 * [x] Camera Control
-* [ ] Animation Preview
+* [x] Animation Preview
 
 ---
 
