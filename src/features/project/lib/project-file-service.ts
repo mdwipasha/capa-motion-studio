@@ -3,6 +3,7 @@ import { getImporter } from "@/features/project/importers";
 import { chooseFile, toRmaFileName } from "@/lib/file-transfer";
 import { appVersion, parseRmaProject, toMotionData } from "@/lib/rma";
 import { useCameraStore } from "@/stores/camera-store";
+import { useAiStore } from "@/stores/ai-store";
 import { useMotionStore } from "@/stores/motion-store";
 import { usePoseStore } from "@/stores/pose-store";
 import { usePreviewStore } from "@/stores/preview-store";
@@ -28,13 +29,14 @@ export function createProjectDocument(): RmaProjectFile | null {
   const workspace = useWorkspaceStore.getState();
   const preview = usePreviewStore.getState();
   const rig = useRigStore.getState();
+  const aiResult = useAiStore.getState().result;
   return {
     format: "capa-motion-rma",
     version: rmaFormatVersion,
     project: { ...project, updatedAt: new Date().toISOString() },
     rig: { type: project.rigType, selectedBoneId: rig.selectedBoneId },
     timeline: { fps: motion.motionData.timeline.fps, duration: motion.motionData.timeline.duration, currentFrame: motion.currentFrame },
-    motion: { keyframes: motion.motionData.timeline.keyframes, boneRotations: poses.poses },
+    motion: { keyframes: motion.motionData.timeline.keyframes, boneRotations: poses.poses, ...(aiResult ? { aiMotion: { video: aiResult.video, motionData: aiResult.motionData } } : {}) },
     settings: {
       camera: camera.view,
       editor: { autosaveEnabled: settings.autosaveEnabled, autosaveIntervalSeconds: settings.autosaveIntervalSeconds, defaultFps: settings.defaultFps, isBottomPanelOpen: workspace.isBottomPanelOpen },
@@ -63,6 +65,8 @@ export function applyProjectDocument(document: RmaProjectFile, sourceName?: stri
   usePreviewStore.getState().setGridVisible(document.settings.viewport.isGridVisible);
   useRigStore.getState().loadRig(document.rig.type);
   useRigStore.getState().selectBone(document.rig.selectedBoneId);
+  if (document.motion.aiMotion) useAiStore.getState().restorePersistedMotion(document.motion.aiMotion.video, document.motion.aiMotion.motionData);
+  else useAiStore.getState().reset();
   useProjectStore.getState().openProject(project);
   cacheProjectDocument({ ...document, project });
 }

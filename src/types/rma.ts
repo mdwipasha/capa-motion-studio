@@ -1,4 +1,5 @@
 import type { MotionKeyframe } from "@/types/motion";
+import type { AiMotionData, VideoMetadata } from "@/types/ai";
 import type { ProjectMetadata, RigType } from "@/types/project";
 import type { PoseFrame } from "@/types/rig";
 
@@ -29,6 +30,7 @@ export interface RmaProjectFile {
   readonly motion: {
     readonly keyframes: readonly MotionKeyframe[];
     readonly boneRotations: readonly PoseFrame[];
+    readonly aiMotion?: { readonly video: VideoMetadata; readonly motionData: AiMotionData };
   };
   readonly settings: {
     readonly camera: RmaCameraSettings;

@@ -1,6 +1,6 @@
 # CapaMotion
 
-CapaMotion is a local-first desktop application for creating and editing Roblox animation projects. It supports Roblox R6/R15 placeholder rigs, a frame-based pose editor, and readable `.rma` project files.
+CapaMotion is a local-first desktop application for creating and editing Roblox animation projects. It supports Roblox R6/R15 placeholder rigs, a frame-based pose editor, readable `.rma` project files, and a local video-to-motion reconstruction pipeline.
 
 ## Tech stack
 
@@ -8,7 +8,7 @@ CapaMotion is a local-first desktop application for creating and editing Roblox 
 - React 19, TypeScript strict mode, Vite, and Tailwind CSS
 - Zustand feature stores
 - Three.js, React Three Fiber, and Drei
-- Reserved Python local AI backend
+- Python local AI backend with MediaPipe pose detection
 
 ## Structure
 
@@ -36,7 +36,7 @@ For browser-only development, run `pnpm dev`. Build the frontend with `pnpm buil
 
 ## Project status
 
-The core editor foundation is usable without AI: projects can be saved as `.rma`, opened again, and restored with their rig, motion, camera, layout, viewport, and editor preferences.
+The core editor and local AI pipeline foundation are usable: projects can be saved as `.rma`, opened again, and restored with their rig, motion, camera, layout, viewport, editor preferences, and optional reconstructed AI motion data.
 
 ## Current features
 
@@ -49,6 +49,8 @@ The core editor foundation is usable without AI: projects can be saved as `.rma`
 - Save, Save As, Open Project, local recovery snapshots, recent projects, and remove-recent action
 - Autosave enabled by default every 30 seconds; configurable in Settings along with default FPS and viewport background color
 - Modular importer/exporter registries: `.rma` import/export is active; FBX adapters provide clear placeholder errors until parser/writer work is implemented
+- Local AI Motion Pipeline with MP4/MOV/AVI selection, drag-and-drop, metadata, FFmpeg extraction progress, cancellation, logs, and original/skeleton previews
+- Python `PoseDetector` abstraction with the initial MediaPipe adapter; reconstruction produces confidence-scored joint positions and placeholder rotations for future retargeting
 
 ## Supported formats
 
@@ -58,6 +60,17 @@ The core editor foundation is usable without AI: projects can be saved as `.rma`
 | FBX | Registered placeholder | Registered placeholder |
 | BVH / GLTF | Planned architecture extension | Planned architecture extension |
 
+## Local AI pipeline
+
+Install and start the local backend before using the **AI** toolbar button:
+
+```bash
+python -m pip install -r python/requirements.txt
+pnpm ai
+```
+
+FFmpeg and `ffprobe` must be on `PATH`. Supported video inputs are MP4, MOV, and AVI. The pipeline binds only to `127.0.0.1` and sends no video, frames, or pose data to cloud services. Its output is retarget-free internal Motion Data and is persisted as optional AI motion data in `.rma` files.
+
 ## Development progress
 
 - Project foundation: complete
@@ -65,8 +78,9 @@ The core editor foundation is usable without AI: projects can be saved as `.rma`
 - Motion editor foundation: complete
 - Rig and pose editor foundation: complete
 - Project file persistence and import/export architecture: complete
+- Local AI motion pipeline foundation: complete
 - FBX parser and writer: pending
-- AI motion workflow: pending
+- Roblox retargeting and AI animation generation: pending
 
 ## Screenshot
 
@@ -74,9 +88,15 @@ _Workspace screenshot placeholder. A captured desktop screenshot will be added w
 
 ## Next milestone
 
-Implement a real FBX importer/exporter, then continue pose tooling with interactive rotation manipulation, constraints, and export-ready retargeting.
+Retarget the reconstructed joint data to Roblox R6/R15, then implement a real FBX importer/exporter and pose constraints.
 
 ## Changelog
+
+### 0.6.0 - Local AI motion pipeline
+
+- Added local Python service modules for video validation/metadata, FFmpeg extraction, MediaPipe pose detection, and retarget-free reconstruction.
+- Added the AI Motion Pipeline UI with drag-and-drop, metadata, progress polling, cancellation, pipeline logs, and original/skeleton-overlay previews.
+- Added optional reconstructed AI Motion Data persistence inside `.rma` project documents.
 
 ### 0.5.0 - Project files, persistence, and transfer foundation
 

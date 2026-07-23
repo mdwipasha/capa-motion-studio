@@ -71,9 +71,9 @@
 
 ## Phase 2 — AI Motion
 
-* [ ] Import Video
-* [ ] Pose Detection
-* [ ] Motion Reconstruction
+* [x] Import Video
+* [x] Pose Detection
+* [x] Motion Reconstruction
 * [ ] Generate Draft Animation
 * [ ] Motion Cleanup
 * [ ] Apply to Timeline

@@ -30,6 +30,11 @@ function isVector(value: unknown): value is readonly [number, number, number] {
   return Array.isArray(value) && value.length === 3 && value.every(isFiniteNumber);
 }
 
+function isAiMotion(value: unknown): boolean {
+  if (!isRecord(value) || !isRecord(value.video) || !isRecord(value.motionData) || !Array.isArray(value.motionData.reconstruction)) return false;
+  return isFiniteNumber(value.video.width) && isFiniteNumber(value.video.height) && isFiniteNumber(value.video.fps) && isFiniteNumber(value.video.duration) && isFiniteNumber(value.video.total_frames);
+}
+
 function hasProjectMetadata(value: unknown): value is ProjectMetadata {
   return isRecord(value) && typeof value.id === "string" && typeof value.name === "string" && rigTypes.includes(value.rigType as ProjectMetadata["rigType"]) && typeof value.createdAt === "string" && typeof value.updatedAt === "string";
 }
@@ -44,6 +49,7 @@ export function validateRmaProject(value: unknown): RmaProjectFile {
   if (value.timeline.fps < 1 || value.timeline.fps > 60 || value.timeline.duration < 1 || value.timeline.duration > 60) throw new Error("The timeline FPS or duration is out of range.");
   if (value.timeline.currentFrame < 0 || value.timeline.currentFrame > getTotalFrames(value.timeline.fps, value.timeline.duration)) throw new Error("The current frame is out of range.");
   if (!isRecord(value.motion) || !Array.isArray(value.motion.keyframes) || !value.motion.keyframes.every(isKeyframe) || !Array.isArray(value.motion.boneRotations) || !value.motion.boneRotations.every(isPoseFrame)) throw new Error("The motion data is invalid.");
+  if (value.motion.aiMotion !== undefined && !isAiMotion(value.motion.aiMotion)) throw new Error("The reconstructed AI motion data is invalid.");
   if (!isRecord(value.settings) || !isRecord(value.settings.camera) || !isVector(value.settings.camera.position) || !isVector(value.settings.camera.target) || !isRecord(value.settings.editor) || !isRecord(value.settings.viewport)) throw new Error("The editor settings are incomplete.");
   if (typeof value.settings.editor.autosaveEnabled !== "boolean" || !isFiniteNumber(value.settings.editor.autosaveIntervalSeconds) || !isFiniteNumber(value.settings.editor.defaultFps) || typeof value.settings.editor.isBottomPanelOpen !== "boolean" || typeof value.settings.viewport.backgroundColor !== "string" || typeof value.settings.viewport.isGridVisible !== "boolean") throw new Error("The editor settings are invalid.");
   if (!isRecord(value.metadata) || typeof value.metadata.appVersion !== "string") throw new Error("The application metadata is missing.");
