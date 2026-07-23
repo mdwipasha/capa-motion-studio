@@ -1,0 +1,16 @@
+import { ErrorBoundary } from "@/components/system/ErrorBoundary";
+import { StudioShell } from "@/features/editor/components/StudioShell";
+import { NewProjectDialog } from "@/features/project/components/NewProjectDialog";
+import { WelcomeScreen } from "@/features/project/components/WelcomeScreen";
+import { useProjectStore } from "@/stores/project-store";
+
+export function App() {
+  const activeProject = useProjectStore((state) => state.activeProject);
+
+  return (
+    <ErrorBoundary>
+      {activeProject ? <StudioShell /> : <WelcomeScreen />}
+      <NewProjectDialog />
+    </ErrorBoundary>
+  );
+}
