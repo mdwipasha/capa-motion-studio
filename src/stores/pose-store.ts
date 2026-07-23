@@ -8,6 +8,8 @@ interface PoseState {
   currentPose: PoseFrame;
   syncCurrentPose: (frame: number) => void;
   setBoneRotation: (boneId: string, rotation: BoneRotation, frame: number) => void;
+  replacePoses: (poses: readonly PoseFrame[], currentFrame: number) => void;
+  resetPoses: () => void;
 }
 
 export const usePoseStore = create<PoseState>((set) => ({
@@ -25,7 +27,12 @@ export const usePoseStore = create<PoseState>((set) => ({
       const poses = currentFramePose ? state.poses.map((pose) => pose.frame === frame ? nextPose : pose) : [...state.poses, nextPose].sort((left, right) => left.frame - right.frame);
       return { poses, currentPose: nextPose };
     });
-  }
+  },
+  replacePoses: (poses, currentFrame) => set(() => {
+    const nextPoses = poses.map((pose) => ({ frame: pose.frame, rotations: { ...pose.rotations } }));
+    return { poses: nextPoses, currentPose: getPoseAtFrame(nextPoses, currentFrame) };
+  }),
+  resetPoses: () => set({ poses: [], currentPose: { frame: 0, rotations: {} } })
 }));
 
 export function useBoneRotation(boneId: string): BoneRotation {

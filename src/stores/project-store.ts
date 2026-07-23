@@ -8,24 +8,55 @@ interface ProjectState {
   isNewProjectDialogOpen: boolean;
   createProject: (input: CreateProjectInput) => void;
   openProject: (project: ProjectMetadata) => void;
-  saveProject: () => void;
+  markProjectSaved: (filePath?: string) => void;
+  removeRecentProject: (projectId: string) => void;
+  resetProject: () => void;
   setNewProjectDialogOpen: (isOpen: boolean) => void;
 }
 
-const mockRecentProjects: ProjectMetadata[] = [
-  { id: "demo-r15", name: "Sword Combo", rigType: "R15", createdAt: "2026-07-18T10:00:00.000Z", updatedAt: "2026-07-22T08:30:00.000Z", filePath: "C:/CapaMotion/Sword Combo.rma" },
-  { id: "demo-r6", name: "Retro Dance", rigType: "R6", createdAt: "2026-07-16T10:00:00.000Z", updatedAt: "2026-07-20T12:00:00.000Z", filePath: "C:/CapaMotion/Retro Dance.rma" }
-];
+const recentProjectsStorageKey = "capa-motion.recent-projects";
+
+function loadRecentProjects(): ProjectMetadata[] {
+  try {
+    const value = localStorage.getItem(recentProjectsStorageKey);
+    return value ? JSON.parse(value) as ProjectMetadata[] : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistRecentProjects(projects: readonly ProjectMetadata[]): void {
+  localStorage.setItem(recentProjectsStorageKey, JSON.stringify(projects.slice(0, 10)));
+}
+
+function addRecentProject(projects: readonly ProjectMetadata[], project: ProjectMetadata): ProjectMetadata[] {
+  const next = [project, ...projects.filter((item) => item.id !== project.id)].slice(0, 10);
+  persistRecentProjects(next);
+  return next;
+}
 
 export const useProjectStore = create<ProjectState>((set) => ({
   activeProject: null,
-  recentProjects: mockRecentProjects,
+  recentProjects: loadRecentProjects(),
   isNewProjectDialogOpen: false,
   createProject: (input) => {
     const project = createProjectMetadata(input);
-    set((state) => ({ activeProject: project, recentProjects: [project, ...state.recentProjects] }));
+    set({ activeProject: project });
   },
-  openProject: (project) => set((state) => ({ activeProject: project, recentProjects: [project, ...state.recentProjects.filter((item) => item.id !== project.id)] })),
-  saveProject: () => set((state) => state.activeProject ? { activeProject: { ...state.activeProject, updatedAt: new Date().toISOString() } } : state),
+  openProject: (project) => set((state) => {
+    const openedProject = { ...project, lastOpenedAt: new Date().toISOString() };
+    return { activeProject: openedProject, recentProjects: addRecentProject(state.recentProjects, openedProject) };
+  }),
+  markProjectSaved: (filePath) => set((state) => {
+    if (!state.activeProject) return state;
+    const savedProject = { ...state.activeProject, filePath: filePath ?? state.activeProject.filePath, updatedAt: new Date().toISOString(), lastOpenedAt: new Date().toISOString() };
+    return { activeProject: savedProject, recentProjects: addRecentProject(state.recentProjects, savedProject) };
+  }),
+  removeRecentProject: (projectId) => set((state) => {
+    const recentProjects = state.recentProjects.filter((project) => project.id !== projectId);
+    persistRecentProjects(recentProjects);
+    return { recentProjects };
+  }),
+  resetProject: () => set({ activeProject: null }),
   setNewProjectDialogOpen: (isOpen) => set({ isNewProjectDialogOpen: isOpen })
 }));

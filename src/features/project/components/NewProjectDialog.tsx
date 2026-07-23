@@ -2,12 +2,18 @@ import { useState, type FormEvent } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useProjectStore } from "@/stores/project-store";
+import { useCameraStore } from "@/stores/camera-store";
+import { useMotionStore } from "@/stores/motion-store";
+import { usePoseStore } from "@/stores/pose-store";
+import { useSettingsStore } from "@/stores/settings-store";
+import { useWorkspaceStore } from "@/stores/workspace-store";
 import type { RigType } from "@/types/project";
 
 export function NewProjectDialog() {
   const isOpen = useProjectStore((state) => state.isNewProjectDialogOpen);
   const setOpen = useProjectStore((state) => state.setNewProjectDialogOpen);
   const createProject = useProjectStore((state) => state.createProject);
+  const defaultFps = useSettingsStore((state) => state.defaultFps);
   const [name, setName] = useState("");
   const [rigType, setRigType] = useState<RigType>("R15");
 
@@ -16,6 +22,10 @@ export function NewProjectDialog() {
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     if (!name.trim()) return;
+    useMotionStore.getState().resetMotion(defaultFps);
+    usePoseStore.getState().resetPoses();
+    useCameraStore.getState().resetView();
+    useWorkspaceStore.getState().setBottomPanelOpen(true);
     createProject({ name, rigType });
     setName("");
     setOpen(false);

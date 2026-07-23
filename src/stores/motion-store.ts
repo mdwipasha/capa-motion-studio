@@ -22,6 +22,8 @@ interface MotionState extends MotionSnapshot {
   updateSelectedKeyframeFrame: (frame: number) => void;
   selectKeyframe: (keyframeId: string | null) => void;
   setPlaybackSettings: (fps: number, duration: number) => void;
+  replaceMotion: (motionData: MotionData, currentFrame: number) => void;
+  resetMotion: (fps: number) => void;
   undo: () => void;
   redo: () => void;
 }
@@ -30,6 +32,10 @@ const initialMotionData: MotionData = {
   version: 1,
   timeline: { fps: 30, duration: 4, keyframes: [{ id: "intro-keyframe", frame: 0 }, { id: "pose-keyframe", frame: 30 }] }
 };
+
+function createInitialMotionData(fps = 30): MotionData {
+  return { version: 1, timeline: { fps, duration: 4, keyframes: [] } };
+}
 
 function snapshot(state: MotionSnapshot): MotionSnapshot {
   return { motionData: { ...state.motionData, timeline: { ...state.motionData.timeline, keyframes: state.motionData.timeline.keyframes.map((keyframe) => ({ ...keyframe })) } }, currentFrame: state.currentFrame, selectedKeyframeId: state.selectedKeyframeId };
@@ -94,6 +100,22 @@ export const useMotionStore = create<MotionState>((set) => ({
     const keyframes = state.motionData.timeline.keyframes.filter((keyframe) => keyframe.frame <= totalFrames);
     return { motionData: { ...state.motionData, timeline: { fps: nextFps, duration: nextDuration, keyframes } }, currentFrame: Math.min(state.currentFrame, totalFrames), selectedKeyframeId: keyframes.some((keyframe) => keyframe.id === state.selectedKeyframeId) ? state.selectedKeyframeId : null };
   }),
+  replaceMotion: (motionData, currentFrame) => set(() => ({
+    motionData: snapshot({ motionData, currentFrame, selectedKeyframeId: null }).motionData,
+    currentFrame: clampFrame(currentFrame, motionData.timeline.fps, motionData.timeline.duration),
+    selectedKeyframeId: null,
+    playbackState: "paused",
+    undoStack: [],
+    redoStack: []
+  })),
+  resetMotion: (fps) => set(() => ({
+    motionData: createInitialMotionData(Math.min(60, Math.max(1, Math.round(fps)))),
+    currentFrame: 0,
+    selectedKeyframeId: null,
+    playbackState: "paused",
+    undoStack: [],
+    redoStack: []
+  })),
   undo: () => set((state) => {
     const previous = state.undoStack.at(-1);
     if (!previous) return state;

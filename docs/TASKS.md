@@ -25,6 +25,9 @@
 * [x] Open Project
 * [x] Save Project
 * [x] Recent Projects
+* [x] Versioned .rma Project File
+* [x] Save As and Restore Editor State
+* [x] Autosave and Project Settings
 
 ---
 
@@ -61,6 +64,8 @@
 
 * [ ] Import FBX
 * [ ] Export FBX
+* [x] Modular Import Architecture
+* [x] Modular Export Architecture
 
 ---
 
