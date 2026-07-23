@@ -52,7 +52,7 @@
 
 ### Preview
 
-* [ ] Camera Control
+* [x] Camera Control
 * [ ] Animation Preview
 
 ---

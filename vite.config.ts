@@ -7,5 +7,14 @@ export default defineConfig({
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   clearScreen: false,
   server: { port: 1420, strictPort: true, host: "127.0.0.1" },
-  envPrefix: ["VITE_", "TAURI_"]
+  envPrefix: ["VITE_", "TAURI_"],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          three: ["three", "three-stdlib", "@react-three/fiber", "@react-three/drei"]
+        }
+      }
+    }
+  }
 });

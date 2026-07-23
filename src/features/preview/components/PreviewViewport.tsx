@@ -1,13 +1,19 @@
 import { Canvas } from "@react-three/fiber";
-import { Box } from "lucide-react";
+import { Rotate3D } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { ViewportScene } from "@/features/preview/components/ViewportScene";
+import { useActiveProject } from "@/hooks/useActiveProject";
+import { useCameraStore } from "@/stores/camera-store";
 import { usePreviewStore } from "@/stores/preview-store";
 
 /**
- * Stable integration boundary for the future Three.js editor scene.
- * The canvas intentionally contains no model or animation in this milestone.
+ * Isolated React Three Fiber boundary. Rig loading can replace RigPlaceholder
+ * without coupling the surrounding editor UI to the renderer.
  */
 export function PreviewViewport() {
   const isGridVisible = usePreviewStore((state) => state.isGridVisible);
+  const requestCameraReset = useCameraStore((state) => state.requestReset);
+  const project = useActiveProject();
 
-  return <div className="relative h-full w-full overflow-hidden bg-[#0c0d12]"><Canvas camera={{ fov: 45, position: [0, 0, 5] }} frameloop="demand" gl={{ antialias: true }}><color args={["#0c0d12"]} attach="background" /></Canvas><div className={`preview-grid pointer-events-none ${isGridVisible ? "opacity-100" : "opacity-0"}`} /><div className="pointer-events-none absolute inset-0 grid place-items-center"><div className="max-w-sm text-center"><div className="mx-auto grid h-14 w-14 place-items-center rounded-xl border border-white/10 bg-white/[0.035] text-violet-300"><Box size={26} /></div><h2 className="mt-4 text-sm font-medium text-slate-200">3D preview is ready for integration</h2><p className="mt-2 text-xs leading-5 text-slate-500">The preview boundary is isolated for a future React Three Fiber scene, models, camera controls, and playback.</p></div></div></div>;
+  return <div className="relative h-full w-full overflow-hidden bg-[#0c0d12]"><Canvas camera={{ fov: 45, position: [7, 5, 9] }} dpr={[1, 2]} frameloop="demand" gl={{ antialias: true, powerPreference: "high-performance" }} shadows><color args={["#0c0d12"]} attach="background" /><ViewportScene isGridVisible={isGridVisible} rigType={project.rigType} /></Canvas><div className="absolute left-3 top-3 rounded-md border border-white/10 bg-[#15161d]/90 px-2.5 py-1.5 text-xs text-slate-400 backdrop-blur"><span className="text-slate-500">Preview</span><span className="mx-1.5 text-white/20">/</span>Roblox {project.rigType}</div><Button className="absolute bottom-3 right-3 bg-[#15161d]/90" onClick={requestCameraReset} size="sm" variant="secondary"><Rotate3D size={14} />Reset Camera</Button></div>;
 }
