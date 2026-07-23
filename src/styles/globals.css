@@ -9,3 +9,15 @@ button, input { font: inherit; }
 .sidebar-item { @apply flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs text-slate-400 transition-colors hover:bg-white/[0.06] hover:text-slate-100; }
 .sidebar-item-active { @apply bg-violet-400/10 text-violet-200; }
 .preview-grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(148, 163, 184, .055) 1px, transparent 1px), linear-gradient(90deg, rgba(148, 163, 184, .055) 1px, transparent 1px); background-size: 32px 32px; mask-image: radial-gradient(ellipse at center, black, transparent 72%); transition: opacity .2s ease; }
+.timeline-number-input { @apply h-6 w-12 rounded border border-white/10 bg-[#101116] px-1.5 text-right text-xs text-slate-200 outline-none focus:border-violet-400; }
+.timeline-scrollbar { scrollbar-color: #475569 transparent; }
+.timeline-ruler { background-image: linear-gradient(90deg, rgba(148, 163, 184, .06) 1px, transparent 1px); background-size: 12px 100%; }
+.timeline-frame { position: absolute; top: 0; bottom: 0; width: 12px; transform: translateX(-50%); cursor: pointer; }
+.timeline-frame:focus-visible { outline: 1px solid #a78bfa; outline-offset: -2px; }
+.timeline-tick { position: absolute; top: 0; height: 7px; width: 1px; background: rgba(148, 163, 184, .35); }
+.timeline-tick-major { height: 13px; background: rgba(203, 213, 225, .5); }
+.timeline-frame-label { position: absolute; top: 14px; left: 2px; font-size: 10px; color: #64748b; }
+.timeline-keyframe { position: absolute; top: 29px; left: 50%; z-index: 2; display: block; height: 9px; width: 9px; transform: translateX(-50%) rotate(45deg); border: 1px solid #c4b5fd; background: #7c3aed; }
+.timeline-keyframe-selected { border-color: #f5f3ff; background: #c4b5fd; box-shadow: 0 0 0 2px rgba(124, 58, 237, .35); }
+.timeline-playhead { position: absolute; top: 0; bottom: 0; z-index: 3; width: 1px; background: #fb7185; pointer-events: none; }
+.timeline-playhead span { position: absolute; top: 0; left: -4px; width: 9px; height: 7px; background: #fb7185; clip-path: polygon(0 0, 100% 0, 50% 100%); }

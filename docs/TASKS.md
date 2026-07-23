@@ -38,15 +38,15 @@
 
 ### Editor
 
-* [ ] Timeline
-* [ ] Play
-* [ ] Pause
-* [ ] Stop
-* [ ] Keyframe
+* [x] Timeline
+* [x] Play
+* [x] Pause
+* [x] Stop
+* [x] Keyframe
 * [ ] Bone Selection
 * [ ] Bone Rotation
-* [ ] Undo
-* [ ] Redo
+* [x] Undo
+* [x] Redo
 
 ---
 

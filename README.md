@@ -15,7 +15,7 @@ CapaMotion is a local-first desktop application for creating Roblox animation pr
 ```
 src/
   components/       # reusable UI and system components
-  features/         # feature-owned UI (project, editor, preview)
+  features/         # feature-owned UI (project, editor, preview, motion)
   hooks/            # React hooks
   lib/              # shared utilities and domain helpers
   stores/           # Zustand stores by concern
@@ -42,13 +42,17 @@ For browser-only development, use `pnpm dev`. Build the frontend with `pnpm buil
 - React Three Fiber scene with perspective camera, orbit/pan/zoom controls, grid, axes, and lighting
 - R6 and R15 wireframe rig placeholders selected from project metadata
 - Feature-separated project, workspace, camera, preview, and settings stores, plus an error boundary
+- Motion Data foundation with timeline, FPS, duration, current frame, and keyframes
+- Play, pause, stop, frame navigation, editable keyframes, and basic undo/redo
 
 ## Current features
 
 - Project toolbar: New, Open mock, Save placeholder, disabled Import/Export, and AI/Settings placeholders
 - Resettable viewport camera and grid visibility control
 - Project metadata and empty-selection inspector
-- `Timeline Coming Soon` panel reserved for a future editor milestone
+- Timeline panel with a dedicated, expandable editor area
+- Interactive timeline with frame ruler, playhead, selectable keyframe markers, and playback settings
+- Keyboard shortcuts: Space, Left/Right Arrow, Delete, Ctrl+Z, and Ctrl+Shift+Z
 
 ## Screenshot
 
@@ -56,9 +60,15 @@ _Workspace screenshot placeholder. A captured desktop screenshot will be added w
 
 ## Next milestone
 
-Implement the timeline, keyframes, playback controls, selectable bones, and persistent `.rma` project files.
+Connect motion data to rig bones, then add persistent `.rma` project files and animation preview playback.
 
 ## Changelog
+
+### 0.3.0 - Motion editor foundation
+
+- Added the internal Motion Data model, isolated motion store, and bounded undo/redo history.
+- Added timeline navigation, frame playhead, keyframe marker selection, creation, editing, and deletion.
+- Added timeline playback controls, FPS/duration settings, and keyboard shortcuts.
 
 ### 0.2.0 - Workspace and 3D preview
 
