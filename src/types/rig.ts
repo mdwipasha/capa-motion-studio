@@ -22,7 +22,11 @@ export interface BoneRotation {
   readonly z: number;
 }
 
+export type BoneVector = BoneRotation;
+
 export interface PoseFrame {
   readonly frame: number;
   readonly rotations: Readonly<Record<string, BoneRotation>>;
+  readonly positions?: Readonly<Record<string, BoneVector>>;
+  readonly scales?: Readonly<Record<string, BoneVector>>;
 }

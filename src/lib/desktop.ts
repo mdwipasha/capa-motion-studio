@@ -9,6 +9,10 @@ export async function checkRuntime(): Promise<RuntimeStatus> {
   return invoke<RuntimeStatus>("check_runtime");
 }
 
+export async function ensureAiService(): Promise<string> {
+  return invoke<string>("ensure_ai_service");
+}
+
 export async function writeApplicationLog(category: string, message: string): Promise<void> {
   await invoke("write_application_log", { category, message });
 }
@@ -23,4 +27,5 @@ export async function checkForUpdates(): Promise<string> {
 
 export async function installPlaceholderModel(): Promise<void> { await invoke("install_placeholder_model"); }
 export async function removePlaceholderModel(): Promise<void> { await invoke("remove_placeholder_model"); }
+export function downloadAiModel(): Promise<string> { return invoke<string>("download_ai_model"); }
 export async function getLaunchProject(): Promise<string | null> { return invoke<string | null>("get_launch_project"); }

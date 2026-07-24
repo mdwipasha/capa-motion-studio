@@ -105,3 +105,26 @@
 * [x] Recent Project Search, Pin, and Favorite
 * [ ] Signed GitHub Release Updater Endpoint
 * [ ] Published GitHub Release Artifacts
+
+---
+
+## Phase 5 â€” Stabilization Fixes
+
+* [x] Interactive Move / Rotate / Scale gizmo
+* [x] Position and scale pose data per keyframe
+* [x] Transform-aware Undo / Redo shortcuts
+* [x] Ctrl + Y redo shortcut
+* [x] Ctrl + C / Ctrl + V transform copy-paste shortcut
+* [x] Delete / Backspace selected keyframe shortcut
+* [x] Keyframe selection immediately syncs transform readback
+* [x] Downloadable MediaPipe Pose Landmarker model
+* [x] Hide Video to Animation until AI model is installed
+* [x] Automatic AI service startup when a local runtime is available
+* [x] FFmpeg extraction progress no longer stalls at 15%
+* [x] MediaPipe Tasks detector fallback
+* [x] Upright retarget root and torso mapping
+* [x] FBX export includes translation, rotation, and scale curves
+* [x] ASCII FBX animation curve import
+* [ ] Bundled no-Python AI runtime sidecar
+* [ ] Binary FBX import
+* [ ] Mesh-preserving FBX import

@@ -2,9 +2,9 @@ import { getTotalFrames } from "@/lib/motion";
 import type { MotionData, MotionKeyframe } from "@/types/motion";
 import { rigTypes, type ProjectMetadata } from "@/types/project";
 import { rmaFormatVersion, type RmaProjectFile } from "@/types/rma";
-import type { BoneRotation, PoseFrame } from "@/types/rig";
+import type { BoneRotation, BoneVector, PoseFrame } from "@/types/rig";
 
-export const appVersion = "0.5.0";
+export const appVersion = "0.8.0";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -14,12 +14,20 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function isRotation(value: unknown): value is BoneRotation {
+function isVector3Object(value: unknown): value is BoneVector {
   return isRecord(value) && isFiniteNumber(value.x) && isFiniteNumber(value.y) && isFiniteNumber(value.z);
 }
 
+function isRotation(value: unknown): value is BoneRotation {
+  return isVector3Object(value);
+}
+
+function isVectorRecord(value: unknown): value is Readonly<Record<string, BoneVector>> {
+  return value === undefined || (isRecord(value) && Object.values(value).every(isVector3Object));
+}
+
 function isPoseFrame(value: unknown): value is PoseFrame {
-  return isRecord(value) && isFiniteNumber(value.frame) && isRecord(value.rotations) && Object.values(value.rotations).every(isRotation);
+  return isRecord(value) && isFiniteNumber(value.frame) && isRecord(value.rotations) && Object.values(value.rotations).every(isRotation) && isVectorRecord(value.positions) && isVectorRecord(value.scales);
 }
 
 function isKeyframe(value: unknown): value is MotionKeyframe {

@@ -18,12 +18,16 @@ const r15: RigDefinition = { id: "R15", name: "Roblox R15", bones: [
   { id: "Head", name: "Head", parentId: "UpperTorso", position: [0, 1.1, 0], scale: [1, 1, 1] },
   { id: "LeftUpperArm", name: "Left Upper Arm", parentId: "UpperTorso", position: [-1.05, 0.05, 0], scale: [0.55, 1, 0.6] },
   { id: "LeftLowerArm", name: "Left Lower Arm", parentId: "LeftUpperArm", position: [0, -0.98, 0], scale: [0.5, 0.9, 0.55] },
+  { id: "LeftHand", name: "Left Hand", parentId: "LeftLowerArm", position: [0, -0.75, 0], scale: [0.46, 0.42, 0.5] },
   { id: "RightUpperArm", name: "Right Upper Arm", parentId: "UpperTorso", position: [1.05, 0.05, 0], scale: [0.55, 1, 0.6] },
   { id: "RightLowerArm", name: "Right Lower Arm", parentId: "RightUpperArm", position: [0, -0.98, 0], scale: [0.5, 0.9, 0.55] },
+  { id: "RightHand", name: "Right Hand", parentId: "RightLowerArm", position: [0, -0.75, 0], scale: [0.46, 0.42, 0.5] },
   { id: "LeftUpperLeg", name: "Left Upper Leg", parentId: "LowerTorso", position: [-0.42, -1, 0], scale: [0.65, 1.1, 0.65] },
   { id: "LeftLowerLeg", name: "Left Lower Leg", parentId: "LeftUpperLeg", position: [0, -1.05, 0], scale: [0.6, 1, 0.6] },
+  { id: "LeftFoot", name: "Left Foot", parentId: "LeftLowerLeg", position: [0, -0.65, 0.18], scale: [0.62, 0.34, 0.78] },
   { id: "RightUpperLeg", name: "Right Upper Leg", parentId: "LowerTorso", position: [0.42, -1, 0], scale: [0.65, 1.1, 0.65] },
-  { id: "RightLowerLeg", name: "Right Lower Leg", parentId: "RightUpperLeg", position: [0, -1.05, 0], scale: [0.6, 1, 0.6] }
+  { id: "RightLowerLeg", name: "Right Lower Leg", parentId: "RightUpperLeg", position: [0, -1.05, 0], scale: [0.6, 1, 0.6] },
+  { id: "RightFoot", name: "Right Foot", parentId: "RightLowerLeg", position: [0, -0.65, 0.18], scale: [0.62, 0.34, 0.78] }
 ] };
 
 const rigDefinitions: Readonly<Record<RigType, RigDefinition>> = { R6: r6, R15: r15 };

@@ -1,9 +1,9 @@
 {
   "rigType": "R6",
   "bones": [
-    { "boneId": "Root", "startJoint": "LEFT_HIP", "endJoint": "RIGHT_HIP" },
-    { "boneId": "Torso", "startJoint": "LEFT_HIP", "endJoint": "LEFT_SHOULDER" },
-    { "boneId": "Head", "startJoint": "LEFT_SHOULDER", "endJoint": "NOSE" },
+    { "boneId": "Root", "startJoint": "CENTER_HIP", "endJoint": "CENTER_SHOULDER" },
+    { "boneId": "Torso", "startJoint": "CENTER_HIP", "endJoint": "CENTER_SHOULDER" },
+    { "boneId": "Head", "startJoint": "CENTER_SHOULDER", "endJoint": "NOSE" },
     { "boneId": "LeftArm", "startJoint": "LEFT_SHOULDER", "endJoint": "LEFT_ELBOW" },
     { "boneId": "RightArm", "startJoint": "RIGHT_SHOULDER", "endJoint": "RIGHT_ELBOW" },
     { "boneId": "LeftLeg", "startJoint": "LEFT_HIP", "endJoint": "LEFT_KNEE" },

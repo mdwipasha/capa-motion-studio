@@ -3,3 +3,6 @@ dist/
 src-tauri/target/
 *.rma
 .env
+.tmp-ai-pipeline-check/
+__pycache__/
+*.pyc

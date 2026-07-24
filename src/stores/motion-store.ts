@@ -92,7 +92,10 @@ export const useMotionStore = create<MotionState>((set) => ({
     const keyframes = state.motionData.timeline.keyframes.map((keyframe) => keyframe.id === selected.id ? { ...keyframe, frame: nextFrame } : keyframe).sort((left, right) => left.frame - right.frame);
     return withHistory(state, { motionData: { ...state.motionData, timeline: { ...state.motionData.timeline, keyframes } }, currentFrame: state.currentFrame, selectedKeyframeId: state.selectedKeyframeId });
   }),
-  selectKeyframe: (selectedKeyframeId) => set({ selectedKeyframeId }),
+  selectKeyframe: (selectedKeyframeId) => set((state) => {
+    const selected = state.motionData.timeline.keyframes.find((keyframe) => keyframe.id === selectedKeyframeId);
+    return { selectedKeyframeId, currentFrame: selected ? selected.frame : state.currentFrame };
+  }),
   setPlaybackSettings: (fps, duration) => set((state) => {
     const nextFps = Math.min(60, Math.max(1, Math.round(fps)));
     const nextDuration = Math.min(60, Math.max(1, Math.round(duration)));

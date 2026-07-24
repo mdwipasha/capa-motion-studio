@@ -38,12 +38,12 @@ JOBS: dict[str, Job] = {}
 JOBS_LOCK = threading.Lock()
 
 
-def run_job(job: Job, source_path: Path, workspace: Path) -> None:
+def run_job(job: Job, source_path: Path, workspace: Path, model_path: str | None = None) -> None:
     def update(step: str, progress: int, current_frame: int, message: str) -> None:
         job.step, job.progress, job.current_frame, job.message = step, progress, current_frame, message
         logger.info("job=%s step=%s progress=%s frame=%s", job.id, step, progress, current_frame)
     try:
-        job.result = run_pipeline(source_path, workspace, job.cancel_event, update)
+        job.result = run_pipeline(source_path, workspace, job.cancel_event, update, detector_factory=lambda: __import__("ai.pose", fromlist=["MediaPipePoseDetector"]).MediaPipePoseDetector(model_path))
     except Exception as error:
         job.error = str(error)
         job.step = "cancelled" if job.cancel_event.is_set() else "failed"
@@ -61,7 +61,7 @@ class ApiHandler(BaseHTTPRequestHandler):
         # The service binds only to loopback; allow Vite and Tauri local origins.
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-File-Name")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-File-Name, X-AI-Model-Path")
         self.end_headers()
         self.wfile.write(body)
 
@@ -112,11 +112,12 @@ class ApiHandler(BaseHTTPRequestHandler):
             source_path.write_bytes(self.rfile.read(length))
             require_supported_video(source_path)
             metadata = read_metadata(source_path)
+            model_path = self.headers.get("X-AI-Model-Path")
             job = Job(uuid.uuid4().hex)
             job.metadata = {"width": metadata.width, "height": metadata.height, "fps": metadata.fps, "duration": metadata.duration, "total_frames": metadata.total_frames}
             with JOBS_LOCK:
                 JOBS[job.id] = job
-            threading.Thread(target=run_job, args=(job, source_path, workspace), daemon=True).start()
+            threading.Thread(target=run_job, args=(job, source_path, workspace, model_path), daemon=True).start()
             self._send_json(HTTPStatus.ACCEPTED, {"jobId": job.id, "metadata": job.metadata})
         except (ValueError, OSError) as error:
             self._send_json(HTTPStatus.BAD_REQUEST, {"error": str(error)})

@@ -20,7 +20,7 @@ export function CameraController() {
     invalidate();
   }, [camera, invalidate, resetRequestId, view]);
 
-  return <OrbitControls ref={controls} enableDamping dampingFactor={0.08} maxDistance={30} minDistance={3} onEnd={() => {
+  return <OrbitControls ref={controls} enableDamping dampingFactor={0.08} makeDefault maxDistance={30} minDistance={3} onEnd={() => {
     const control = controls.current;
     if (!control) return;
     setView({ position: [camera.position.x, camera.position.y, camera.position.z], target: [control.target.x, control.target.y, control.target.z] });

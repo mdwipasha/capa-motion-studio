@@ -2,6 +2,7 @@ export interface RuntimeStatus {
   readonly python: boolean;
   readonly ffmpeg: boolean;
   readonly aiModel: boolean;
+  readonly aiModelPath: string;
   readonly portableMode: boolean;
   readonly dataDirectory: string;
   readonly logDirectory: string;

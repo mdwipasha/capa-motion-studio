@@ -20,7 +20,7 @@ def run_pipeline(video_path: Path, workspace: Path, cancel_event: Event, update:
         update("loading_video", 5, 0, "Reading video metadata")
         metadata = read_metadata(video_path)
         update("extracting_frames", 15, 0, "Extracting frames with FFmpeg")
-        frames = extract_frames(video_path, workspace / "frames", cancel_event)
+        frames = extract_frames(video_path, workspace / "frames", cancel_event, lambda percent: update("extracting_frames", 15 + int(percent * 0.2), 0, f"Extracting frames with FFmpeg {percent}%"))
         detector: PoseDetector = detector_factory()
         poses: list[PoseFrame] = []
         try:

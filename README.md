@@ -57,25 +57,25 @@ The core editor and local AI pipeline foundation are usable: projects can be sav
 - Desktop workspace with toolbar, project sidebar, responsive viewport, inspector, and collapsible timeline panel
 - New projects with Roblox R6/R15 metadata and data-driven placeholder rigs
 - Timeline, keyframes, frame navigation, playback controls, and basic undo/redo
-- Bone hierarchy, synced selection, frame-based pose data, and manual bone rotation fields
-- Visual-only X/Y/Z rotation guide; enter `rotation = Vector3.new(x, y, z)` in the inspector to set a rotation
+- Bone hierarchy, synced selection, frame-based pose data, interactive Move/Rotate/Scale gizmo controls, and manual transform fields
+- Position, rotation, and scale are stored per keyframe; `rotation = Vector3.new(x, y, z)` remains available for Roblox-style rotation entry
 - Versioned, validated JSON `.rma` files containing project metadata, rig, timeline, motion poses, camera, viewport, layout, and preferences
 - Save, Save As, Open Project, local recovery snapshots, recent projects, and remove-recent action
 - Autosave enabled by default every 30 seconds; configurable in Settings along with default FPS and viewport background color
-- Modular importer/exporter registries: `.rma` import/export is active; FBX adapters provide clear placeholder errors until parser/writer work is implemented
-- Local AI Motion Pipeline with MP4/MOV/AVI selection, drag-and-drop, metadata, FFmpeg extraction progress, cancellation, logs, and original/skeleton previews
-- Python `PoseDetector` abstraction with the initial MediaPipe adapter; reconstruction produces confidence-scored joint positions and placeholder rotations for future retargeting
+- Modular importer/exporter registries: `.rma` import/export is active; ASCII FBX animation curves can be imported into the editor timeline
+- Local AI Motion Pipeline with MP4/MOV/AVI selection, drag-and-drop, metadata, responsive FFmpeg extraction progress, cancellation, logs, and original/skeleton previews
+- Python `PoseDetector` abstraction with MediaPipe classic and MediaPipe Tasks support; reconstruction produces confidence-scored joint positions and placeholder rotations for future retargeting
 - Data-driven retarget engine with separate R6/R15 bone-mapping JSON files, quaternion-based rotation conversion, and editable generated poses
 - Fast, Balanced, and High Quality cleanup presets for sampling, rotation smoothing, jitter reduction, and keyframe reduction
 - Before / After / Split preview modes for source-pose comparison against the Roblox rig preview
-- Local ASCII FBX animation export with generated R6/R15 skeleton hierarchy and rotation curves
+- Local Binary FBX 7.4 animation-only export with generated R6/R15 skeleton hierarchy plus translation and rotation curves; scale curves are written only when used
 
 ## Supported formats
 
 | Format | Import | Export |
 | --- | --- | --- |
 | CapaMotion `.rma` | Supported | Supported |
-| FBX | Registered placeholder | Local ASCII animation export |
+| FBX | ASCII skeleton/animation curve import | Binary FBX 7.4 animation-only export |
 | BVH / GLTF | Planned architecture extension | Planned architecture extension |
 
 ## Local AI pipeline
@@ -91,7 +91,7 @@ FFmpeg and `ffprobe` must be on `PATH`. Supported video inputs are MP4, MOV, and
 
 ## AI models, release, and recovery
 
-Use **Help → AI Models** to inspect and manage the local MediaPipe Pose placeholder. The runtime check and first-launch wizard verify Python, FFmpeg, and the model without loading AI until needed.
+Use **Help → AI Models** to download and manage the local MediaPipe Pose Landmarker model. The Video to Animation menu is hidden until the model is installed. When a video is submitted, the app attempts to start the local AI service automatically. Development builds fall back to `python python/server.py`; release builds should include a bundled `capamotion-ai.exe` sidecar so users do not need to know how to start Python manually.
 
 Release configuration registers `.rma` as a CapaMotion project type and launch arguments are validated before opening a project. Help provides About, runtime diagnostics, logs, keyboard shortcuts, model management, and update-check readiness. Interrupted sessions offer the latest cached recent project for recovery.
 
@@ -107,7 +107,7 @@ Version `0.8.0` is verified across package, Cargo, and Tauri manifests during pr
 ## Troubleshooting
 
 - **AI runtime unavailable:** install Python dependencies and add FFmpeg to `PATH`.
-- **No AI model:** use Help → AI Models to install the local placeholder.
+- **No AI model:** use Help → AI Models to download the local MediaPipe Pose Landmarker model.
 - **Recovered session shown:** restore the snapshot or dismiss it and open `.rma` manually.
 - **Release build is slow or fails:** install required Windows SDK/WiX tooling and retry `pnpm release`.
 
@@ -115,7 +115,7 @@ Version `0.8.0` is verified across package, Cargo, and Tauri manifests during pr
 
 After AI processing finishes, choose **Create Roblox Draft**, select the cleanup quality, and build the timeline for the active project rig. Both R6 and R15 are supported through separate external mapping files. The generated keyframes are normal editor poses: they can be selected, changed, removed, and saved like manually authored data.
 
-The FBX button exports a local ASCII FBX 7.4 rotation animation with the project rig hierarchy. It is intended for Roblox Studio animation-import validation; mesh, facial, finger, and physics data are intentionally not generated.
+The FBX button exports a Binary FBX 7.4 animation-only file with the project rig hierarchy, bind pose, animation stack/layer, and connected translation/rotation curves. Scale curves are omitted unless scale is actually animated. Mesh, material, texture, camera, light, facial, finger, and physics data are intentionally not generated.
 
 ## Development progress
 
@@ -127,7 +127,7 @@ The FBX button exports a local ASCII FBX 7.4 rotation animation with the project
 - Local AI motion pipeline foundation: complete
 - R6/R15 retargeting, cleanup, and editable draft timeline: complete
 - Local FBX animation export: complete
-- FBX import: pending
+- FBX import: partial ASCII animation import; binary and mesh-preserving import remain pending
 
 ## Screenshot
 
@@ -138,6 +138,17 @@ _Workspace screenshot placeholder. A captured desktop screenshot will be added w
 Validate and refine FBX import compatibility, then evolve cleanup with foot locking, hand locking, and constraints.
 
 ## Changelog
+
+### Unreleased - Editor, AI, and FBX stability fixes
+
+- Replaced the visual-only rig gizmo with interactive Move, Rotate, and Scale transform controls.
+- Added per-keyframe position and scale pose data, direct keyframe readback, and transform-aware undo/redo shortcuts.
+- Replaced the AI model placeholder with a real MediaPipe Pose Landmarker download path and hid Video to Animation until the model is installed.
+- Fixed FFmpeg extraction progress so Video to Animation no longer appears stuck at 15%.
+- Added MediaPipe Tasks support for environments where `mediapipe.solutions` is unavailable.
+- Added automatic AI service startup with support for a future bundled `capamotion-ai.exe` runtime sidecar.
+- Stabilized retarget root/torso mapping so generated Roblox drafts remain upright instead of inheriting a sideways hip-axis rotation.
+- Rewrote FBX export as Binary FBX 7.4 animation-only output with validated skeleton, bind pose, animation stack/layer, curve nodes, curves, and connections; partial ASCII FBX animation import remains available.
 
 ### 0.8.0 - Release and user experience foundation
 

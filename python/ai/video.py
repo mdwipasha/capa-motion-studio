@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import json
 import shutil
+import re
 import subprocess
 import time
 from pathlib import Path
+
+from typing import Callable
 
 from .models import VideoMetadata
 
@@ -50,11 +53,41 @@ def read_metadata(path: Path) -> VideoMetadata:
     return VideoMetadata(int(stream["width"]), int(stream["height"]), fps, duration, total_frames)
 
 
-def extract_frames(video_path: Path, output_dir: Path, cancel_event: object | None = None) -> list[Path]:
+def extract_frames(video_path: Path, output_dir: Path, cancel_event: object | None = None, progress: Callable[[int], None] | None = None, target_fps: float = 12.0) -> list[Path]:
     if shutil.which("ffmpeg") is None:
         raise RuntimeError("ffmpeg was not found. Install FFmpeg and add it to PATH.")
     output_dir.mkdir(parents=True, exist_ok=True)
-    _run(["ffmpeg", "-y", "-i", str(video_path), "-vsync", "0", str(output_dir / "frame_%06d.png")], cancel_event)
+    metadata = read_metadata(video_path)
+    output_fps = min(max(target_fps, 1.0), metadata.fps)
+    expected_frames = max(1, round(metadata.duration * output_fps))
+    command = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        str(video_path),
+        "-vf",
+        f"fps={output_fps:.3f}",
+        "-progress",
+        "pipe:1",
+        "-nostats",
+        str(output_dir / "frame_%06d.png"),
+    ]
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    last_percent = -1
+    assert process.stdout is not None
+    for line in process.stdout:
+        if cancel_event is not None and getattr(cancel_event, "is_set")():
+            process.terminate()
+            process.wait(timeout=3)
+            raise RuntimeError("Pipeline cancelled by user.")
+        match = re.match(r"frame=\s*(\d+)", line.strip())
+        if match and progress is not None:
+            percent = min(100, int(int(match.group(1)) / expected_frames * 100))
+            if percent != last_percent:
+                last_percent = percent
+                progress(percent)
+    if process.wait() != 0:
+        raise RuntimeError("FFmpeg frame extraction failed.")
     frames = sorted(output_dir.glob("frame_*.png"))
     if not frames:
         raise RuntimeError("FFmpeg did not extract any frames.")

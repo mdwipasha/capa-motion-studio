@@ -1,5 +1,6 @@
 import { exporters } from "@/features/project/exporters";
 import { getImporter } from "@/features/project/importers";
+import type { FbxImportDocument } from "@/features/project/importers/fbx-importer";
 import { chooseFile, toRmaFileName } from "@/lib/file-transfer";
 import { appVersion, parseRmaProject, toMotionData } from "@/lib/rma";
 import { useCameraStore } from "@/stores/camera-store";
@@ -110,6 +111,11 @@ export async function importFile(): Promise<string | null> {
   const result = await importer.import(file);
   if (!result.ok) throw new Error(result.message);
   if (importer.id === "rma" && result.document) applyProjectDocument(result.document as RmaProjectFile, file.name);
+  if (importer.id === "fbx" && result.document) {
+    const document = result.document as FbxImportDocument;
+    useMotionStore.getState().replaceMotion(document.motionData, 0);
+    usePoseStore.getState().replacePoses(document.poses, 0);
+  }
   return result.message;
 }
 

@@ -10,9 +10,26 @@ import type { CleanupSettings, RetargetResult } from "@/types/retarget";
 
 const restAxis = new Vector3(0, 1, 0);
 
-function toRotation(frame: ReconstructedMotionFrame, startJoint: string, endJoint: string, previous: Quaternion | undefined): { readonly rotation: BoneRotation; readonly quaternion: Quaternion } | null {
-  const start = frame.jointPositions.find((joint) => joint.name === startJoint);
-  const end = frame.jointPositions.find((joint) => joint.name === endJoint);
+interface JointSample {
+  readonly position: readonly [number, number, number];
+  readonly confidence: number;
+}
+
+function averageJoint(left: JointSample | null, right: JointSample | null): JointSample | null {
+  if (!left || !right) return null;
+  return { position: [(left.position[0] + right.position[0]) / 2, (left.position[1] + right.position[1]) / 2, (left.position[2] + right.position[2]) / 2], confidence: Math.min(left.confidence, right.confidence) };
+}
+
+function joint(frame: ReconstructedMotionFrame, name: string): JointSample | null {
+  if (name === "CENTER_HIP") return averageJoint(joint(frame, "LEFT_HIP"), joint(frame, "RIGHT_HIP"));
+  if (name === "CENTER_SHOULDER") return averageJoint(joint(frame, "LEFT_SHOULDER"), joint(frame, "RIGHT_SHOULDER"));
+  return frame.jointPositions.find((candidate) => candidate.name === name) ?? null;
+}
+
+function toRotation(frame: ReconstructedMotionFrame, boneId: string, startJoint: string, endJoint: string, previous: Quaternion | undefined): { readonly rotation: BoneRotation; readonly quaternion: Quaternion } | null {
+  if (boneId === "Root") return { rotation: { x: 0, y: 0, z: 0 }, quaternion: new Quaternion() };
+  const start = joint(frame, startJoint);
+  const end = joint(frame, endJoint);
   if (!start || !end || start.confidence < 0.3 || end.confidence < 0.3) return null;
   const direction = new Vector3(end.position[0] - start.position[0], -(end.position[1] - start.position[1]), end.position[2] - start.position[2]);
   if (direction.lengthSq() < 0.000001) return null;
@@ -44,7 +61,7 @@ export function retargetMotion(source: AiMotionData, rigType: RigType, cleanup: 
     const sourceFrame = source.reconstruction[index];
     const rotations: Record<string, BoneRotation> = {};
     for (const entry of mapping.bones) {
-      const converted = toRotation(sourceFrame, entry.startJoint, entry.endJoint, previous.get(entry.boneId));
+      const converted = toRotation(sourceFrame, entry.boneId, entry.startJoint, entry.endJoint, previous.get(entry.boneId));
       if (!converted) continue;
       previous.set(entry.boneId, converted.quaternion);
       const stableRotation = stabilizeRotation(converted.rotation, previousEuler.get(entry.boneId));
