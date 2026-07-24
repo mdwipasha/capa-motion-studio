@@ -86,3 +86,22 @@
 * [ ] Motion Library
 * [ ] Auto Loop
 * [ ] Animation Templates
+
+---
+
+## Phase 4 — Release & Distribution
+
+* [x] Windows NSIS Release Configuration
+* [x] Windows MSI Release Configuration
+* [x] .rma File Association Configuration
+* [x] Version Consistency Guard
+* [x] Help, About, and Keyboard Shortcut Viewer
+* [x] AI Model Manager Placeholder
+* [x] Local Runtime Check
+* [x] Local Logging and Log Folder Access
+* [x] Crash Recovery Prompt
+* [x] Portable Mode
+* [x] First Launch Wizard
+* [x] Recent Project Search, Pin, and Favorite
+* [ ] Signed GitHub Release Updater Endpoint
+* [ ] Published GitHub Release Artifacts

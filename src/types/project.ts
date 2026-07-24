@@ -9,6 +9,8 @@ export interface ProjectMetadata {
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly lastOpenedAt?: string;
+  readonly isPinned?: boolean;
+  readonly isFavorite?: boolean;
   readonly filePath?: string;
 }
 

@@ -10,6 +10,8 @@ interface ProjectState {
   openProject: (project: ProjectMetadata) => void;
   markProjectSaved: (filePath?: string) => void;
   removeRecentProject: (projectId: string) => void;
+  togglePinnedProject: (projectId: string) => void;
+  toggleFavoriteProject: (projectId: string) => void;
   resetProject: () => void;
   setNewProjectDialogOpen: (isOpen: boolean) => void;
 }
@@ -54,6 +56,16 @@ export const useProjectStore = create<ProjectState>((set) => ({
   }),
   removeRecentProject: (projectId) => set((state) => {
     const recentProjects = state.recentProjects.filter((project) => project.id !== projectId);
+    persistRecentProjects(recentProjects);
+    return { recentProjects };
+  }),
+  togglePinnedProject: (projectId) => set((state) => {
+    const recentProjects = state.recentProjects.map((project) => project.id === projectId ? { ...project, isPinned: !project.isPinned } : project).sort((left, right) => Number(Boolean(right.isPinned)) - Number(Boolean(left.isPinned)));
+    persistRecentProjects(recentProjects);
+    return { recentProjects };
+  }),
+  toggleFavoriteProject: (projectId) => set((state) => {
+    const recentProjects = state.recentProjects.map((project) => project.id === projectId ? { ...project, isFavorite: !project.isFavorite } : project);
     persistRecentProjects(recentProjects);
     return { recentProjects };
   }),

@@ -1,13 +1,15 @@
 {
   "name": "capa-motion-studio",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.8.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/check-version.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "ai": "python python/server.py",
+    "release": "tauri build --bundles nsis,msi",
     "tauri": "tauri"
   },
   "dependencies": {

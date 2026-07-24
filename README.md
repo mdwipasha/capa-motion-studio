@@ -34,6 +34,20 @@ pnpm tauri dev
 
 For browser-only development, run `pnpm dev`. Build the frontend with `pnpm build`.
 
+## Installation and system requirements
+
+- Supported platform: Windows 10/11 (64-bit)
+- Desktop runtime: Microsoft WebView2 Runtime
+- Optional AI runtime: Python 3.12+, FFmpeg/FFprobe, and `python/requirements.txt`
+- Installer targets: NSIS `.exe` and WiX `.msi`
+
+```bash
+pnpm install
+pnpm release
+```
+
+Tauri writes installer artifacts under `src-tauri/target/release/bundle/`. To use Portable Mode, place a `portable.flag` file beside the executable; data, models, cache, and logs then remain under its adjacent `data/` directory. Installer builds use the application data directory.
+
 ## Project status
 
 The core editor and local AI pipeline foundation are usable: projects can be saved as `.rma`, opened again, and restored with their rig, motion, camera, layout, viewport, editor preferences, and optional reconstructed AI motion data.
@@ -75,6 +89,28 @@ pnpm ai
 
 FFmpeg and `ffprobe` must be on `PATH`. Supported video inputs are MP4, MOV, and AVI. The pipeline binds only to `127.0.0.1` and sends no video, frames, or pose data to cloud services. Its output is retarget-free internal Motion Data and is persisted as optional AI motion data in `.rma` files.
 
+## AI models, release, and recovery
+
+Use **Help → AI Models** to inspect and manage the local MediaPipe Pose placeholder. The runtime check and first-launch wizard verify Python, FFmpeg, and the model without loading AI until needed.
+
+Release configuration registers `.rma` as a CapaMotion project type and launch arguments are validated before opening a project. Help provides About, runtime diagnostics, logs, keyboard shortcuts, model management, and update-check readiness. Interrupted sessions offer the latest cached recent project for recovery.
+
+Version `0.8.0` is verified across package, Cargo, and Tauri manifests during prebuild. Signed auto-update artifacts are enabled, but publishing an updater requires a GitHub Releases endpoint, updater public key, and private signing key supplied through CI secrets.
+
+## Release process
+
+1. Update the version; the prebuild guard validates every manifest.
+2. Configure the signed GitHub Releases endpoint/public key for production.
+3. Provide the Tauri private signing key through CI secrets.
+4. Run `pnpm release`, then upload `.exe`, `.msi`, and updater artifacts to GitHub Releases.
+
+## Troubleshooting
+
+- **AI runtime unavailable:** install Python dependencies and add FFmpeg to `PATH`.
+- **No AI model:** use Help → AI Models to install the local placeholder.
+- **Recovered session shown:** restore the snapshot or dismiss it and open `.rma` manually.
+- **Release build is slow or fails:** install required Windows SDK/WiX tooling and retry `pnpm release`.
+
 ## Retargeting and FBX export
 
 After AI processing finishes, choose **Create Roblox Draft**, select the cleanup quality, and build the timeline for the active project rig. Both R6 and R15 are supported through separate external mapping files. The generated keyframes are normal editor poses: they can be selected, changed, removed, and saved like manually authored data.
@@ -102,6 +138,12 @@ _Workspace screenshot placeholder. A captured desktop screenshot will be added w
 Validate and refine FBX import compatibility, then evolve cleanup with foot locking, hand locking, and constraints.
 
 ## Changelog
+
+### 0.8.0 - Release and user experience foundation
+
+- Added Windows NSIS/MSI release configuration, `.rma` file association, Portable Mode routing, and version consistency validation.
+- Added Help/About, runtime diagnostics, local model-manager placeholder, log folder access, keyboard shortcuts, and update-check readiness.
+- Added first-launch wizard, cached-session recovery, expanded Settings, and searchable/pinnable/favoritable recent projects.
 
 ### 0.7.0 - Roblox retargeting, cleanup, and FBX export
 
