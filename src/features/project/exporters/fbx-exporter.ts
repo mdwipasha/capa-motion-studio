@@ -1,7 +1,12 @@
+import { downloadTextFile } from "@/lib/file-transfer";
+import { buildAsciiFbx, type FbxExportInput } from "@/features/project/exporters/fbx-builder";
 import type { FileExporter } from "@/types/transfer";
 
-export const fbxExporter: FileExporter = {
+export const fbxExporter: FileExporter<FbxExportInput> = {
   id: "fbx",
   label: "Autodesk FBX (.fbx)",
-  export: async () => ({ ok: false, message: "FBX export is registered, but its writer will be added in a later iteration." })
+  export: async (document, fileName) => {
+    downloadTextFile(fileName, buildAsciiFbx(document), "application/octet-stream");
+    return { ok: true, message: `Exported ${fileName}.` };
+  }
 };

@@ -63,7 +63,7 @@
 ### Import / Export
 
 * [ ] Import FBX
-* [ ] Export FBX
+* [x] Export FBX
 * [x] Modular Import Architecture
 * [x] Modular Export Architecture
 
@@ -74,9 +74,9 @@
 * [x] Import Video
 * [x] Pose Detection
 * [x] Motion Reconstruction
-* [ ] Generate Draft Animation
-* [ ] Motion Cleanup
-* [ ] Apply to Timeline
+* [x] Generate Draft Animation
+* [x] Motion Cleanup
+* [x] Apply to Timeline
 
 ---
 

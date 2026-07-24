@@ -114,7 +114,12 @@ export async function importFile(): Promise<string | null> {
 }
 
 export async function exportFbx(): Promise<string> {
-  const result = await exporters.fbx.export(undefined, "motion.fbx");
+  const project = useProjectStore.getState().activeProject;
+  if (!project) throw new Error("Create or open a project before exporting.");
+  const motion = useMotionStore.getState().motionData;
+  const poses = usePoseStore.getState().poses;
+  if (poses.length === 0) throw new Error("Create or retarget motion poses before exporting FBX.");
+  const result = await exporters.fbx.export({ projectName: project.name, rigType: project.rigType, motionData: motion, poses }, `${toRmaFileName(project.name).replace(/\.rma$/i, "")}.fbx`);
   if (!result.ok) throw new Error(result.message);
   return result.message;
 }

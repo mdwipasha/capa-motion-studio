@@ -51,13 +51,17 @@ The core editor and local AI pipeline foundation are usable: projects can be sav
 - Modular importer/exporter registries: `.rma` import/export is active; FBX adapters provide clear placeholder errors until parser/writer work is implemented
 - Local AI Motion Pipeline with MP4/MOV/AVI selection, drag-and-drop, metadata, FFmpeg extraction progress, cancellation, logs, and original/skeleton previews
 - Python `PoseDetector` abstraction with the initial MediaPipe adapter; reconstruction produces confidence-scored joint positions and placeholder rotations for future retargeting
+- Data-driven retarget engine with separate R6/R15 bone-mapping JSON files, quaternion-based rotation conversion, and editable generated poses
+- Fast, Balanced, and High Quality cleanup presets for sampling, rotation smoothing, jitter reduction, and keyframe reduction
+- Before / After / Split preview modes for source-pose comparison against the Roblox rig preview
+- Local ASCII FBX animation export with generated R6/R15 skeleton hierarchy and rotation curves
 
 ## Supported formats
 
 | Format | Import | Export |
 | --- | --- | --- |
 | CapaMotion `.rma` | Supported | Supported |
-| FBX | Registered placeholder | Registered placeholder |
+| FBX | Registered placeholder | Local ASCII animation export |
 | BVH / GLTF | Planned architecture extension | Planned architecture extension |
 
 ## Local AI pipeline
@@ -71,6 +75,12 @@ pnpm ai
 
 FFmpeg and `ffprobe` must be on `PATH`. Supported video inputs are MP4, MOV, and AVI. The pipeline binds only to `127.0.0.1` and sends no video, frames, or pose data to cloud services. Its output is retarget-free internal Motion Data and is persisted as optional AI motion data in `.rma` files.
 
+## Retargeting and FBX export
+
+After AI processing finishes, choose **Create Roblox Draft**, select the cleanup quality, and build the timeline for the active project rig. Both R6 and R15 are supported through separate external mapping files. The generated keyframes are normal editor poses: they can be selected, changed, removed, and saved like manually authored data.
+
+The FBX button exports a local ASCII FBX 7.4 rotation animation with the project rig hierarchy. It is intended for Roblox Studio animation-import validation; mesh, facial, finger, and physics data are intentionally not generated.
+
 ## Development progress
 
 - Project foundation: complete
@@ -79,8 +89,9 @@ FFmpeg and `ffprobe` must be on `PATH`. Supported video inputs are MP4, MOV, and
 - Rig and pose editor foundation: complete
 - Project file persistence and import/export architecture: complete
 - Local AI motion pipeline foundation: complete
-- FBX parser and writer: pending
-- Roblox retargeting and AI animation generation: pending
+- R6/R15 retargeting, cleanup, and editable draft timeline: complete
+- Local FBX animation export: complete
+- FBX import: pending
 
 ## Screenshot
 
@@ -88,9 +99,15 @@ _Workspace screenshot placeholder. A captured desktop screenshot will be added w
 
 ## Next milestone
 
-Retarget the reconstructed joint data to Roblox R6/R15, then implement a real FBX importer/exporter and pose constraints.
+Validate and refine FBX import compatibility, then evolve cleanup with foot locking, hand locking, and constraints.
 
 ## Changelog
+
+### 0.7.0 - Roblox retargeting, cleanup, and FBX export
+
+- Added external R6/R15 bone mappings, quaternion-based rotation conversion, and asynchronous retarget progress.
+- Added Fast, Balanced, and High Quality cleanup presets with smoothing, jitter reduction, and keyframe reduction.
+- Added editable AI-generated timeline poses, Before/After/Split preview modes, and local ASCII FBX 7.4 animation export.
 
 ### 0.6.0 - Local AI motion pipeline
 

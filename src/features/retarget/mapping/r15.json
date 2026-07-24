@@ -1,0 +1,17 @@
+{
+  "rigType": "R15",
+  "bones": [
+    { "boneId": "Root", "startJoint": "LEFT_HIP", "endJoint": "RIGHT_HIP" },
+    { "boneId": "LowerTorso", "startJoint": "LEFT_HIP", "endJoint": "LEFT_SHOULDER" },
+    { "boneId": "UpperTorso", "startJoint": "LEFT_HIP", "endJoint": "LEFT_SHOULDER" },
+    { "boneId": "Head", "startJoint": "LEFT_SHOULDER", "endJoint": "NOSE" },
+    { "boneId": "LeftUpperArm", "startJoint": "LEFT_SHOULDER", "endJoint": "LEFT_ELBOW" },
+    { "boneId": "LeftLowerArm", "startJoint": "LEFT_ELBOW", "endJoint": "LEFT_WRIST" },
+    { "boneId": "RightUpperArm", "startJoint": "RIGHT_SHOULDER", "endJoint": "RIGHT_ELBOW" },
+    { "boneId": "RightLowerArm", "startJoint": "RIGHT_ELBOW", "endJoint": "RIGHT_WRIST" },
+    { "boneId": "LeftUpperLeg", "startJoint": "LEFT_HIP", "endJoint": "LEFT_KNEE" },
+    { "boneId": "LeftLowerLeg", "startJoint": "LEFT_KNEE", "endJoint": "LEFT_ANKLE" },
+    { "boneId": "RightUpperLeg", "startJoint": "RIGHT_HIP", "endJoint": "RIGHT_KNEE" },
+    { "boneId": "RightLowerLeg", "startJoint": "RIGHT_KNEE", "endJoint": "RIGHT_ANKLE" }
+  ]
+}
