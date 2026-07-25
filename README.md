@@ -64,6 +64,9 @@ The core editor and local AI pipeline foundation are usable: projects can be sav
 - Autosave enabled by default every 30 seconds; configurable in Settings along with default FPS and viewport background color
 - Modular importer/exporter registries: `.rma` import/export is active; ASCII FBX animation curves can be imported into the editor timeline
 - Local AI Motion Pipeline with MP4/MOV/AVI selection, drag-and-drop, metadata, responsive FFmpeg extraction progress, cancellation, logs, and original/skeleton previews
+- AI Tools panel gated by the same local runtime/model readiness as Video to Animation
+- Text to Motion draft generation from local prompt-matched presets; generated keyframes remain editable in the timeline
+- Motion Library, Animation Templates, and Auto Loop tools for quickly applying starter motions and loop-ready endings
 - Python `PoseDetector` abstraction with MediaPipe classic and MediaPipe Tasks support; reconstruction produces confidence-scored joint positions and placeholder rotations for future retargeting
 - Data-driven retarget engine with separate R6/R15 bone-mapping JSON files, quaternion-based rotation conversion, and editable generated poses
 - Fast, Balanced, and High Quality cleanup presets for sampling, rotation smoothing, jitter reduction, and keyframe reduction
@@ -106,6 +109,8 @@ pnpm ai:runtime -- -FfmpegDir C:\path\to\ffmpeg\bin
 
 The script creates `dist-ai-runtime/capamotion-ai-runtime-windows-x64.zip`. Publish that zip to the URL configured by `CAPAMOTION_AI_RUNTIME_URL` at build time, or to the default GitHub Releases path shown in Help - AI Models.
 
+Phase 3 AI Tools use the same readiness gate. Text to Motion, Motion Library, Auto Loop, and Animation Templates appear from the toolbar only after the runtime and pose model are installed. The first Text to Motion implementation is a local prompt-to-preset draft generator, so it creates editable timeline poses without using a cloud API.
+
 Release configuration registers `.rma` as a CapaMotion project type and launch arguments are validated before opening a project. Help provides About, runtime diagnostics, logs, keyboard shortcuts, model management, and update-check readiness. Interrupted sessions offer the latest cached recent project for recovery.
 
 Version `0.8.0` is verified across package, Cargo, and Tauri manifests during prebuild. Signed auto-update artifacts are enabled, but publishing an updater requires a GitHub Releases endpoint, updater public key, and private signing key supplied through CI secrets.
@@ -138,6 +143,7 @@ The FBX button exports a Binary FBX 7.4 animation-only file with an Armature-roo
 - Rig and pose editor foundation: complete
 - Project file persistence and import/export architecture: complete
 - Local AI motion pipeline foundation: complete
+- Phase 3 AI tools: complete
 - R6/R15 retargeting, cleanup, and editable draft timeline: complete
 - Local FBX animation export: complete
 - FBX import: partial ASCII animation import; binary and mesh-preserving import remain pending
@@ -148,7 +154,7 @@ _Workspace screenshot placeholder. A captured desktop screenshot will be added w
 
 ## Next milestone
 
-Validate and refine FBX import compatibility, then evolve cleanup with foot locking, hand locking, and constraints.
+Validate and refine FBX import/export compatibility, then replace the local prompt-to-preset Text to Motion generator with a richer local model when the AI runtime bundle is ready for larger models.
 
 ## Changelog
 
@@ -161,6 +167,7 @@ Validate and refine FBX import compatibility, then evolve cleanup with foot lock
 - Added MediaPipe Tasks support for environments where `mediapipe.solutions` is unavailable.
 - Added automatic AI service startup with support for a future bundled `capamotion-ai.exe` runtime sidecar.
 - Added downloadable AI runtime bundle management so release users can run Video to Animation without manually installing Python or FFmpeg.
+- Added Phase 3 AI Tools: Text to Motion, Motion Library, Auto Loop, and Animation Templates, all gated behind local AI runtime/model readiness.
 - Stabilized retarget root/torso mapping so generated Roblox drafts remain upright instead of inheriting a sideways hip-axis rotation.
 - Rewrote FBX export as Binary FBX 7.4 animation-only output with validated Armature-rooted skeletons, terminal leaf bones, typed time metadata, standard FBX footer, animation stack/layer, curve nodes, curves, and connections; partial ASCII FBX animation import remains available.
 

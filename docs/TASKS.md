@@ -82,10 +82,10 @@
 
 ## Phase 3 — AI Tools
 
-* [ ] Text to Motion
-* [ ] Motion Library
-* [ ] Auto Loop
-* [ ] Animation Templates
+* [x] Text to Motion
+* [x] Motion Library
+* [x] Auto Loop
+* [x] Animation Templates
 
 ---
 
