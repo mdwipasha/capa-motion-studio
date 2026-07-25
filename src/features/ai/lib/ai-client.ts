@@ -8,7 +8,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     response = await fetch(`${aiServiceUrl}${path}`, init);
   } catch {
-    throw new Error("Local AI service is unavailable. Start it with: python python/server.py");
+    throw new Error("Local AI service is unavailable. Install the AI Runtime and Pose Model from Help > AI Models, then try again.");
   }
   const payload = await response.json() as T & { error?: string };
   if (!response.ok) throw new Error(payload.error ?? "Local AI service returned an error.");
@@ -18,6 +18,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export async function startAiPipeline(file: File): Promise<{ readonly jobId: string; readonly metadata: VideoMetadata }> {
   const runtime = await checkRuntime().catch(() => null);
   if (runtime && !runtime.aiModel) throw new Error("Download the AI model from Help > AI Models before running Video to Animation.");
+  if (runtime && !runtime.aiRuntimeReady) throw new Error("Download the AI Runtime from Help > AI Models before running Video to Animation.");
   await ensureAiService().catch((error: unknown) => {
     throw new Error(error instanceof Error ? error.message : "Unable to start the local AI service.");
   });

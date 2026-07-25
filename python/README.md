@@ -9,7 +9,15 @@ python -m pip install -r python/requirements.txt
 pnpm ai
 ```
 
-FFmpeg and `ffprobe` must be available on `PATH`. The frontend calls `http://127.0.0.1:8765` and reports a clear error when this service is not running.
+FFmpeg and `ffprobe` must be available on `PATH` for development. Release builds use a downloadable AI runtime sidecar containing `capamotion-ai.exe`, `ffmpeg.exe`, and `ffprobe.exe`, so end users do not need to install Python or FFmpeg manually.
+
+## Build sidecar runtime
+
+```powershell
+pnpm ai:runtime -- -FfmpegDir C:\path\to\ffmpeg\bin
+```
+
+This creates `dist-ai-runtime/capamotion-ai-runtime-windows-x64.zip`. Publish it to the URL configured by `CAPAMOTION_AI_RUNTIME_URL` before building the Tauri installer.
 
 ## Pipeline
 

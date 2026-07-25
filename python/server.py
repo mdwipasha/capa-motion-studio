@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import shutil
 import tempfile
 import threading
@@ -112,7 +113,7 @@ class ApiHandler(BaseHTTPRequestHandler):
             source_path.write_bytes(self.rfile.read(length))
             require_supported_video(source_path)
             metadata = read_metadata(source_path)
-            model_path = self.headers.get("X-AI-Model-Path")
+            model_path = self.headers.get("X-AI-Model-Path") or os.environ.get("CAPAMOTION_AI_MODEL_PATH")
             job = Job(uuid.uuid4().hex)
             job.metadata = {"width": metadata.width, "height": metadata.height, "fps": metadata.fps, "duration": metadata.duration, "total_frames": metadata.total_frames}
             with JOBS_LOCK:

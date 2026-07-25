@@ -124,10 +124,13 @@
 * [x] MediaPipe Tasks detector fallback
 * [x] Upright retarget root and torso mapping
 * [x] Binary FBX 7.4 animation-only export
-* [x] FBX rest-pose local transforms and global bind-pose matrices
+* [x] FBX rest-pose local transforms for animation-only skeletons
 * [x] R6/R15 skeleton hierarchy validation (R15: 16 bones)
 * [x] FBX translation and rotation curves (scale curves only when animated)
+* [x] FBX 7.4 footer, typed KTime scene values, and Blender-style property templates
+* [x] R6 Root export mapping to Roblox HumanoidRootPart
 * [x] ASCII FBX animation curve import
-* [ ] Bundled no-Python AI runtime sidecar
+* [x] Bundled no-Python AI runtime sidecar
+* [x] Downloadable AI runtime bundle management
 * [ ] Binary FBX import
 * [ ] Mesh-preserving FBX import

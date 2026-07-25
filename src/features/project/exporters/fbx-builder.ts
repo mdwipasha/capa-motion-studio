@@ -16,7 +16,12 @@ interface NumericArrayProperty {
   readonly values: readonly number[];
 }
 
-type PropertyValue = string | number | bigint | boolean | Uint8Array | NumericArrayProperty;
+interface ScalarProperty {
+  readonly kind: "I" | "D" | "L";
+  readonly value: number | bigint;
+}
+
+type PropertyValue = string | number | bigint | boolean | Uint8Array | NumericArrayProperty | ScalarProperty;
 
 interface FbxNode {
   readonly name: string;
@@ -43,20 +48,30 @@ const rootNodeId = 0;
 const documentId = 101;
 const stackId = 200;
 const layerId = 201;
+const armatureId = 900_000;
+const armatureAttributeId = 900_001;
 const modelBaseId = 1_000_000;
+const leafModelBaseId = 1_100_000;
 const curveBaseId = 2_000_000;
-const poseId = 3_000_000;
 const attributeBaseId = 4_000_000;
+const leafAttributeBaseId = 4_100_000;
+const footerMagic = new Uint8Array([0xfa, 0xbc, 0xab, 0x09, 0xd0, 0xc8, 0xd4, 0x66, 0xb1, 0x76, 0xfb, 0x83, 0x1c, 0xf7, 0x26, 0x7c]);
 const requiredR15Bones = ["Root", "LowerTorso", "UpperTorso", "Head", "LeftUpperArm", "LeftLowerArm", "LeftHand", "RightUpperArm", "RightLowerArm", "RightHand", "LeftUpperLeg", "LeftLowerLeg", "LeftFoot", "RightUpperLeg", "RightLowerLeg", "RightFoot"] as const;
 
 function modelId(index: number): number { return modelBaseId + index; }
 function finite(value: number, fallback = 0): number { return Number.isFinite(value) ? value : fallback; }
 function axisKey(axis: "X" | "Y" | "Z"): "x" | "y" | "z" { return axis.toLowerCase() as "x" | "y" | "z"; }
 function formatName(value: string): string { return value.replace(/[^\w .-]/g, "_") || "CapaMotion"; }
-function d(values: readonly number[]): NumericArrayProperty { return { kind: "d", values }; }
+function fbxName(name: string, className: string): string {
+  return `${name}\u0000\u0001${className}`;
+}
+
 function i(values: readonly number[]): NumericArrayProperty { return { kind: "i", values }; }
 function l(values: readonly number[]): NumericArrayProperty { return { kind: "l", values }; }
 function f(values: readonly number[]): NumericArrayProperty { return { kind: "f", values }; }
+function integer(value: number): ScalarProperty { return { kind: "I", value: Math.round(value) }; }
+function decimal(value: number): ScalarProperty { return { kind: "D", value }; }
+function time(value: number): ScalarProperty { return { kind: "L", value: BigInt(Math.round(value)) }; }
 
 function poseValue(frame: PoseFrame, boneId: string, property: FbxProperty, axis: "x" | "y" | "z"): number {
   if (property === "Lcl Translation") return finite(frame.positions?.[boneId]?.[axis] ?? 0);
@@ -73,18 +88,65 @@ function hasScaleAnimation(poses: readonly PoseFrame[]): boolean {
   return poses.some((pose) => Object.values(pose.scales ?? {}).some((scale) => Math.abs(scale.x - 1) > 0.0001 || Math.abs(scale.y - 1) > 0.0001 || Math.abs(scale.z - 1) > 0.0001));
 }
 
+function propertyValueForType(type: string, value: PropertyValue): PropertyValue {
+  if (typeof value !== "number") return value;
+  if (type === "KTime") return time(value);
+  if (type === "int" || type === "enum" || type === "object") return integer(value);
+  if (type === "double" || type === "Number" || type === "Vector3D" || type.startsWith("Lcl ")) return decimal(value);
+  return value;
+}
+
+function pWithSubtype(name: string, type: string, subtype: string, flag: string, value: PropertyValue | readonly PropertyValue[]): FbxNode {
+  const values = Array.isArray(value) ? value : [value];
+  return { name: "P", properties: [name, type, subtype, flag, ...values.map((item) => propertyValueForType(type, item))] };
+}
+
 function p(name: string, type: string, flag: string, value: PropertyValue | readonly PropertyValue[]): FbxNode {
-  return { name: "P", properties: [name, type, "", flag, ...(Array.isArray(value) ? value : [value])] };
+  return pWithSubtype(name, type, "", flag, value);
 }
 
 function properties70(children: readonly FbxNode[]): FbxNode {
   return { name: "Properties70", children };
 }
 
-function modelNode(bone: RigBoneDefinition, id: number): FbxNode {
+function propertyTemplate(name: string, properties: readonly FbxNode[]): FbxNode {
+  return { name: "PropertyTemplate", properties: [name], children: properties.length > 0 ? [properties70(properties)] : undefined };
+}
+
+function objectType(name: string, count: number, template?: FbxNode): FbxNode {
+  return { name: "ObjectType", properties: [name], children: [{ name: "Count", properties: [count] }, ...(template ? [template] : [])] };
+}
+
+function definitionsNode(modelCount: number, nodeAttributeCount: number, animatedBoneCount: number, animatedPropertyCount: number, objectCount: number): FbxNode {
+  return {
+    name: "Definitions",
+    children: [
+      { name: "Version", properties: [100] },
+      { name: "Count", properties: [objectCount] },
+      objectType("Model", modelCount, propertyTemplate("FbxNode", [p("RotationActive", "bool", "", true), p("InheritType", "enum", "", 1), p("Lcl Translation", "Lcl Translation", "A", [0, 0, 0]), p("Lcl Rotation", "Lcl Rotation", "A", [0, 0, 0]), p("Lcl Scaling", "Lcl Scaling", "A", [1, 1, 1])])),
+      objectType("NodeAttribute", nodeAttributeCount, propertyTemplate("FbxSkeleton", [p("Size", "double", "", 1)])),
+      objectType("AnimationStack", 1, propertyTemplate("FbxAnimStack", [p("LocalStart", "KTime", "Time", 0), p("LocalStop", "KTime", "Time", 0), p("ReferenceStart", "KTime", "Time", 0), p("ReferenceStop", "KTime", "Time", 0)])),
+      objectType("AnimationLayer", 1, propertyTemplate("FbxAnimLayer", [])),
+      objectType("AnimationCurveNode", animatedBoneCount * animatedPropertyCount, propertyTemplate("FbxAnimCurveNode", [p("d|X", "Number", "A", 0), p("d|Y", "Number", "A", 0), p("d|Z", "Number", "A", 0)])),
+      objectType("AnimationCurve", animatedBoneCount * animatedPropertyCount * 3, propertyTemplate("FbxAnimCurve", []))
+    ]
+  };
+}
+
+function robloxExportName(rigType: RigType, bone: RigBoneDefinition): string {
+  // R15's bone.id already matches Roblox's real (no-space) R15 part names.
+  // R6's real part names use spaces ("Left Arm", "Right Arm", "Left Leg", "Right Leg"),
+  // which live in bone.name, not bone.id — bone.id is only the internal identifier.
+  // CapaMotion keeps the neutral internal id "Root", but Roblox R6 binds the
+  // root joint through the HumanoidRootPart instance.
+  if (rigType === "R6" && bone.id === "Root") return "HumanoidRootPart";
+  return rigType === "R6" ? bone.name : bone.id;
+}
+
+function modelNode(bone: RigBoneDefinition, id: number, exportName: string): FbxNode {
   return {
     name: "Model",
-    properties: [id, `Model::${bone.id}`, "LimbNode"],
+    properties: [id, fbxName(exportName, "Model"), "LimbNode"],
     children: [
       { name: "Version", properties: [232] },
       properties70([
@@ -96,6 +158,7 @@ function modelNode(bone: RigBoneDefinition, id: number): FbxNode {
         p("TranslationActive", "bool", "", true),
         p("TranslationMin", "Vector3D", "", [0, 0, 0]),
         p("TranslationMax", "Vector3D", "", [0, 0, 0]),
+        p("RotationActive", "bool", "", true),
         p("RotationOrder", "enum", "", 0),
         p("RotationSpaceForLimitOnly", "bool", "", false),
         p("RotationStiffnessX", "double", "", 0),
@@ -117,7 +180,7 @@ function curveNode(id: number, boneId: string, property: FbxProperty): FbxNode {
   const defaultValue = property === "Lcl Scaling" ? 1 : 0;
   return {
     name: "AnimationCurveNode",
-    properties: [id, `AnimCurveNode::${boneId}_${property.replace("Lcl ", "")}`, ""],
+    properties: [id, fbxName(`${boneId}_${property.replace("Lcl ", "")}`, "AnimCurveNode"), ""],
     children: [properties70([p("d|X", "Number", "A", defaultValue), p("d|Y", "Number", "A", defaultValue), p("d|Z", "Number", "A", defaultValue)])]
   };
 }
@@ -138,7 +201,7 @@ function animationCurve(id: number, bone: RigBoneDefinition, property: FbxProper
   });
   return {
     name: "AnimationCurve",
-    properties: [id, `AnimCurve::${bone.id}_${property.replace("Lcl ", "")}_${axis}`, ""],
+    properties: [id, fbxName(`${bone.id}_${property.replace("Lcl ", "")}_${axis}`, "AnimCurve"), ""],
     children: [
       { name: "Default", properties: [property === "Lcl Scaling" ? 1 : 0] },
       { name: "KeyVer", properties: [4008] },
@@ -151,14 +214,46 @@ function animationCurve(id: number, bone: RigBoneDefinition, property: FbxProper
   };
 }
 
-function nodeAttributeNode(id: number, displayLength: number): FbxNode {
+function nodeAttributeNode(exportName: string, id: number, displayLength: number): FbxNode {
   return {
     name: "NodeAttribute",
-    properties: [id, "NodeAttribute::", "LimbNode"],
+    properties: [id, fbxName(exportName, "NodeAttribute"), "LimbNode"],
     children: [
       { name: "Version", properties: [100] },
       properties70([p("Size", "double", "Number", displayLength)]),
       { name: "TypeFlags", properties: ["Skeleton"] }
+    ]
+  };
+}
+
+function armatureNode(): FbxNode {
+  return {
+    name: "Model",
+    properties: [armatureId, fbxName("Armature", "Model"), "Null"],
+    children: [
+      { name: "Version", properties: [232] },
+      properties70([
+        p("Lcl Translation", "Lcl Translation", "A+", [0, 0, 0]),
+        p("Lcl Rotation", "Lcl Rotation", "A+", [0, 0, 0]),
+        p("Lcl Scaling", "Lcl Scaling", "A+", [1, 1, 1]),
+        pWithSubtype("DefaultAttributeIndex", "int", "Integer", "", 0),
+        p("InheritType", "enum", "", 1)
+      ]),
+      { name: "MultiLayer", properties: [0] },
+      { name: "MultiTake", properties: [0] },
+      { name: "Shading", properties: [true] },
+      { name: "Culling", properties: ["CullingOff"] }
+    ]
+  };
+}
+
+function armatureNodeAttribute(): FbxNode {
+  return {
+    name: "NodeAttribute",
+    properties: [armatureAttributeId, fbxName("Armature", "NodeAttribute"), "Null"],
+    children: [
+      { name: "TypeFlags", properties: ["Null"] },
+      properties70([p("Color", "ColorRGB", "Color", [0.8, 0.8, 0.8]), pWithSubtype("Size", "double", "Number", "", 100), p("Look", "enum", "", 1)])
     ]
   };
 }
@@ -172,35 +267,17 @@ function boneDisplayLength(bone: RigBoneDefinition, bones: readonly RigBoneDefin
   return Math.max(0.1, Math.max(...bone.scale));
 }
 
-function computeWorldPositions(bones: readonly RigBoneDefinition[]): ReadonlyMap<string, readonly [number, number, number]> {
-  const byId = new Map(bones.map((bone) => [bone.id, bone]));
-  const resolved = new Map<string, readonly [number, number, number]>();
-  function resolve(boneId: string): readonly [number, number, number] {
-    const cached = resolved.get(boneId);
-    if (cached) return cached;
-    const bone = byId.get(boneId);
-    if (!bone) return [0, 0, 0];
-    const parent = bone.parentId ? resolve(bone.parentId) : ([0, 0, 0] as const);
-    const world: readonly [number, number, number] = [
-      finite(bone.position[0]) + parent[0],
-      finite(bone.position[1]) + parent[1],
-      finite(bone.position[2]) + parent[2]
-    ];
-    resolved.set(boneId, world);
-    return world;
-  }
-  for (const bone of bones) resolve(bone.id);
-  return resolved;
+interface LeafBone {
+  readonly id: string;
+  readonly name: string;
+  readonly parentIndex: number;
+  readonly position: readonly [number, number, number];
 }
 
-function poseNode(worldPosition: readonly [number, number, number], id: number): FbxNode {
-  const matrix = [
-    1, 0, 0, 0,
-    0, 1, 0, 0,
-    0, 0, 1, 0,
-    finite(worldPosition[0]), finite(worldPosition[1]), finite(worldPosition[2]), 1
-  ];
-  return { name: "PoseNode", children: [{ name: "Node", properties: [id] }, { name: "Matrix", properties: [d(matrix)] }] };
+function leafBones(bones: readonly RigBoneDefinition[]): readonly LeafBone[] {
+  return bones.flatMap((bone, index) => bones.some((candidate) => candidate.parentId === bone.id)
+    ? []
+    : [{ id: `${bone.id}_end`, name: `${bone.name}_end`, parentIndex: index, position: [0, boneDisplayLength(bone, bones), 0] }]);
 }
 
 function buildGraph(input: FbxExportInput): FbxGraph {
@@ -210,32 +287,43 @@ function buildGraph(input: FbxExportInput): FbxGraph {
   const poses = input.poses.length > 0 ? input.poses : [{ frame: 0, rotations: {} }];
   validatePoses(poses, fps);
   const includeScale = hasScaleAnimation(poses);
+  const leaves = leafBones(rig.bones);
   const objects: FbxNode[] = [];
-  const objectIds = new Set<number>([stackId, layerId, poseId]);
+  const objectIds = new Set<number>([stackId, layerId, armatureId, armatureAttributeId]);
   const connections: FbxConnection[] = [{ type: "OO", source: layerId, destination: stackId }];
   const curveTargets: { readonly curveId: number; readonly nodeId: number; readonly axis: `d|${"X" | "Y" | "Z"}` }[] = [];
 
+  objects.push(armatureNodeAttribute(), armatureNode());
+  connections.push({ type: "OO", source: armatureAttributeId, destination: armatureId });
+
   for (const [index, bone] of rig.bones.entries()) {
     const id = modelId(index);
+    const exportName = robloxExportName(input.rigType, bone);
     objectIds.add(id);
-    objects.push(modelNode(bone, id));
-    connections.push({ type: "OO", source: id, destination: bone.parentId ? modelId(rig.bones.findIndex((candidate) => candidate.id === bone.parentId)) : rootNodeId });
+    objects.push(modelNode(bone, id, exportName));
+    connections.push({ type: "OO", source: id, destination: bone.parentId ? modelId(rig.bones.findIndex((candidate) => candidate.id === bone.parentId)) : armatureId });
 
     const attributeId = attributeBaseId + index;
     objectIds.add(attributeId);
-    objects.push(nodeAttributeNode(attributeId, boneDisplayLength(bone, rig.bones)));
+    objects.push(nodeAttributeNode(exportName, attributeId, boneDisplayLength(bone, rig.bones)));
     connections.push({ type: "OO", source: attributeId, destination: id });
   }
 
-  const worldPositions = computeWorldPositions(rig.bones);
-  objects.push({
-    name: "Pose",
-    properties: [poseId, "Pose::BindPose", "BindPose"],
-    children: [{ name: "Type", properties: ["BindPose"] }, { name: "Version", properties: [100] }, { name: "NbPoseNodes", properties: [rig.bones.length] }, ...rig.bones.map((bone, index) => poseNode(worldPositions.get(bone.id) ?? [0, 0, 0], modelId(index)))]
-  });
+  for (const [index, leaf] of leaves.entries()) {
+    const id = leafModelBaseId + index;
+    const attributeId = leafAttributeBaseId + index;
+    const definition: RigBoneDefinition = { id: leaf.id, name: leaf.name, parentId: rig.bones[leaf.parentIndex].id, position: leaf.position, scale: [1, 1, 1] };
+    objectIds.add(id);
+    objectIds.add(attributeId);
+    objects.push(modelNode(definition, id, leaf.name));
+    objects.push(nodeAttributeNode(leaf.name, attributeId, 1));
+    connections.push({ type: "OO", source: id, destination: modelId(leaf.parentIndex) });
+    connections.push({ type: "OO", source: attributeId, destination: id });
+  }
 
-  objects.push({ name: "AnimationStack", properties: [stackId, "AnimStack::Take 001", ""], children: [properties70([p("LocalStart", "KTime", "Time", 0), p("LocalStop", "KTime", "Time", Math.round(input.motionData.timeline.duration * fbxTicksPerSecond)), p("ReferenceStart", "KTime", "Time", 0), p("ReferenceStop", "KTime", "Time", Math.round(input.motionData.timeline.duration * fbxTicksPerSecond))])] });
-  objects.push({ name: "AnimationLayer", properties: [layerId, "AnimLayer::BaseLayer", ""] });
+  const stopTime = Math.round(input.motionData.timeline.duration * fbxTicksPerSecond);
+  objects.push({ name: "AnimationStack", properties: [stackId, fbxName("Take 001", "AnimStack"), ""], children: [properties70([p("LocalStart", "KTime", "Time", 0), p("LocalStop", "KTime", "Time", stopTime), p("ReferenceStart", "KTime", "Time", 0), p("ReferenceStop", "KTime", "Time", stopTime)])] });
+  objects.push({ name: "AnimationLayer", properties: [layerId, fbxName("BaseLayer", "AnimLayer"), ""] });
 
   let nextCurveId = curveBaseId;
   const animatedProperties: readonly FbxProperty[] = includeScale ? ["Lcl Translation", "Lcl Rotation", "Lcl Scaling"] : ["Lcl Translation", "Lcl Rotation"];
@@ -259,7 +347,7 @@ function buildGraph(input: FbxExportInput): FbxGraph {
   }
 
   const nodes: FbxNode[] = [
-    { name: "FBXHeaderExtension", children: [{ name: "FBXHeaderVersion", properties: [1003] }, { name: "FBXVersion", properties: [7400] }, { name: "EncryptionType", properties: [0] }, { name: "Creator", properties: ["CapaMotion Studio"] }] },
+    { name: "FBXHeaderExtension", children: [{ name: "FBXHeaderVersion", properties: [1003] }, { name: "FBXVersion", properties: [7400] }, { name: "EncryptionType", properties: [0] }, { name: "CreationTimeStamp", children: [{ name: "Version", properties: [1000] }, { name: "Year", properties: [new Date().getFullYear()] }, { name: "Month", properties: [new Date().getMonth() + 1] }, { name: "Day", properties: [new Date().getDate()] }, { name: "Hour", properties: [new Date().getHours()] }, { name: "Minute", properties: [new Date().getMinutes()] }, { name: "Second", properties: [new Date().getSeconds()] }, { name: "Millisecond", properties: [new Date().getMilliseconds()] }] }, { name: "Creator", properties: ["CapaMotion Studio"] }] },
     { name: "FileId", properties: [new Uint8Array([0x28, 0xb3, 0x2a, 0xeb, 0xb6, 0x24, 0xcc, 0xc2, 0xbf, 0xc8, 0xb0, 0x2a, 0xa9, 0x2b, 0xfc, 0xf1])] },
     { name: "CreationTime", properties: [new Date().toISOString()] },
     { name: "Creator", properties: ["CapaMotion Studio"] },
@@ -267,15 +355,15 @@ function buildGraph(input: FbxExportInput): FbxGraph {
       name: "GlobalSettings",
       children: [
         { name: "Version", properties: [1000] },
-        properties70([p("UpAxis", "int", "A", 1), p("UpAxisSign", "int", "A", 1), p("FrontAxis", "int", "A", 2), p("FrontAxisSign", "int", "A", 1), p("CoordAxis", "int", "A", 0), p("CoordAxisSign", "int", "A", 1), p("UnitScaleFactor", "double", "A", 1), p("TimeMode", "enum", "", 14), p("CustomFrameRate", "double", "Number", fps)])
+        properties70([pWithSubtype("UpAxis", "int", "Integer", "", 1), pWithSubtype("UpAxisSign", "int", "Integer", "", 1), pWithSubtype("FrontAxis", "int", "Integer", "", 2), pWithSubtype("FrontAxisSign", "int", "Integer", "", 1), pWithSubtype("CoordAxis", "int", "Integer", "", 0), pWithSubtype("CoordAxisSign", "int", "Integer", "", 1), pWithSubtype("UnitScaleFactor", "double", "Number", "", 1), pWithSubtype("TimeMode", "enum", "", "", 14), pWithSubtype("TimeSpanStart", "KTime", "Time", "", 0), pWithSubtype("TimeSpanStop", "KTime", "Time", "", stopTime), pWithSubtype("CustomFrameRate", "double", "Number", "", fps)])
       ]
     },
-    { name: "Documents", children: [{ name: "Count", properties: [1] }, { name: "Document", properties: [documentId, `Document::${formatName(input.projectName)}`, "Scene"], children: [properties70([p("SourceObject", "object", "", 0), p("ActiveAnimStackName", "KString", "", "Take 001")]), { name: "RootNode", properties: [rootNodeId] }] }] },
+    { name: "Documents", children: [{ name: "Count", properties: [1] }, { name: "Document", properties: [documentId, fbxName(formatName(input.projectName), "Document"), "Scene", 0], children: [properties70([p("SourceObject", "object", "", ""), p("ActiveAnimStackName", "KString", "", "AnimStack::Take 001")]), { name: "RootNode", properties: [rootNodeId] }] }] },
     { name: "References" },
-    { name: "Definitions", children: [{ name: "Version", properties: [100] }, { name: "Count", properties: [objects.length] }, { name: "ObjectType", properties: ["Model"], children: [{ name: "Count", properties: [rig.bones.length] }] }, { name: "ObjectType", properties: ["NodeAttribute"], children: [{ name: "Count", properties: [rig.bones.length] }] }, { name: "ObjectType", properties: ["AnimationStack"], children: [{ name: "Count", properties: [1] }] }, { name: "ObjectType", properties: ["AnimationLayer"], children: [{ name: "Count", properties: [1] }] }, { name: "ObjectType", properties: ["AnimationCurveNode"], children: [{ name: "Count", properties: [rig.bones.length * animatedProperties.length] }] }, { name: "ObjectType", properties: ["AnimationCurve"], children: [{ name: "Count", properties: [rig.bones.length * animatedProperties.length * 3] }] }, { name: "ObjectType", properties: ["Pose"], children: [{ name: "Count", properties: [1] }] }] },
+    definitionsNode(1 + rig.bones.length + leaves.length, 1 + rig.bones.length + leaves.length, rig.bones.length, animatedProperties.length, objects.length),
     { name: "Objects", children: objects },
     { name: "Connections", children: connections.map((connection) => ({ name: "C", properties: connection.type === "OO" ? [connection.type, connection.source, connection.destination] : [connection.type, connection.source, connection.destination, connection.property ?? ""] })) },
-    { name: "Takes", children: [{ name: "Current", properties: ["Take 001"] }, { name: "Take", properties: ["Take 001"], children: [{ name: "FileName", properties: ["Take_001.tak"] }, { name: "LocalTime", properties: [0, Math.round(input.motionData.timeline.duration * fbxTicksPerSecond)] }, { name: "ReferenceTime", properties: [0, Math.round(input.motionData.timeline.duration * fbxTicksPerSecond)] }] }] }
+    { name: "Takes", children: [{ name: "Current", properties: ["Take 001"] }, { name: "Take", properties: ["Take 001"], children: [{ name: "FileName", properties: ["Take_001.tak"] }, { name: "LocalTime", properties: [time(0), time(stopTime)] }, { name: "ReferenceTime", properties: [time(0), time(stopTime)] }] }] }
   ];
 
   return { nodes, objectIds, connections, curveTargets };
@@ -368,7 +456,7 @@ function propertyBytes(value: PropertyValue): Uint8Array {
     writer.writeU8("R".charCodeAt(0));
     writer.writeU32(value.length);
     writer.writeBytes(value);
-  } else if (typeof value === "object") {
+  } else if (typeof value === "object" && "values" in value) {
     writer.writeU8(value.kind.charCodeAt(0));
     writer.writeU32(value.values.length);
     writer.writeU32(0);
@@ -379,6 +467,11 @@ function propertyBytes(value: PropertyValue): Uint8Array {
       else if (value.kind === "f") writer.writeF32(item);
       else writer.writeF64(item);
     }
+  } else if (typeof value === "object") {
+    writer.writeU8(value.kind.charCodeAt(0));
+    if (value.kind === "I") writer.writeI32(Math.round(Number(value.value)));
+    else if (value.kind === "L") writer.writeI64(typeof value.value === "bigint" ? value.value : BigInt(Math.round(value.value)));
+    else writer.writeF64(Number(value.value));
   } else if (typeof value === "string") {
     const encoded = new TextEncoder().encode(value);
     writer.writeU8("S".charCodeAt(0));
@@ -414,6 +507,83 @@ function writeNode(writer: BinaryWriter, node: FbxNode): void {
   writer.patchU32(start, writer.offset);
 }
 
+function writeFooter(writer: BinaryWriter): void {
+  const alignmentPadding = (16 - (writer.offset % 16)) % 16;
+  writer.writeBytes(new Uint8Array(alignmentPadding));
+  writer.writeBytes(footerMagic);
+  writer.writeBytes(new Uint8Array(4));
+  writer.writeU32(7400);
+  writer.writeBytes(new Uint8Array(120));
+  writer.writeBytes(footerMagic);
+}
+
+function readU32(bytes: Uint8Array, offset: number): number {
+  if (offset + 4 > bytes.length) throw new Error("Unexpected end of FBX binary data.");
+  return (bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24)) >>> 0;
+}
+
+function isNullRecord(bytes: Uint8Array, offset: number): boolean {
+  return offset + 13 <= bytes.length && bytes.slice(offset, offset + 13).every((value) => value === 0);
+}
+
+function propertyEndOffset(bytes: Uint8Array, offset: number): number {
+  if (offset >= bytes.length) throw new Error("Missing FBX property type.");
+  const type = String.fromCharCode(bytes[offset]);
+  const scalarSizes: Readonly<Record<string, number>> = { Y: 2, C: 1, I: 4, F: 4, D: 8, L: 8 };
+  if (type in scalarSizes) return offset + 1 + scalarSizes[type];
+  if (type === "R" || type === "S") return offset + 5 + readU32(bytes, offset + 1);
+  if ("fdilb".includes(type)) {
+    const length = readU32(bytes, offset + 1);
+    const encoding = readU32(bytes, offset + 5);
+    const payloadLength = readU32(bytes, offset + 9);
+    if (encoding !== 0) throw new Error("Compressed FBX arrays are not supported by the local binary validator.");
+    const elementSize = type === "f" || type === "i" ? 4 : type === "d" || type === "l" ? 8 : 1;
+    if (payloadLength !== length * elementSize) throw new Error(`Invalid ${type} array payload length.`);
+    return offset + 13 + payloadLength;
+  }
+  throw new Error(`Unsupported FBX property type ${type}.`);
+}
+
+function nodeEndOffset(bytes: Uint8Array, offset: number): number {
+  const endOffset = readU32(bytes, offset);
+  const propertyCount = readU32(bytes, offset + 4);
+  const propertyListLength = readU32(bytes, offset + 8);
+  const nameLength = bytes[offset + 12];
+  if (endOffset <= offset || endOffset > bytes.length) throw new Error("Invalid FBX node end offset.");
+  let cursor = offset + 13 + nameLength;
+  const propertyEnd = cursor + propertyListLength;
+  if (propertyEnd > endOffset) throw new Error("FBX property list exceeds node boundary.");
+  for (let index = 0; index < propertyCount; index += 1) cursor = propertyEndOffset(bytes, cursor);
+  if (cursor !== propertyEnd) throw new Error("FBX property list length does not match encoded properties.");
+  cursor = propertyEnd;
+  while (cursor < endOffset) {
+    if (isNullRecord(bytes, cursor)) {
+      cursor += 13;
+      break;
+    }
+    cursor = nodeEndOffset(bytes, cursor);
+  }
+  if (cursor !== endOffset) throw new Error("FBX child node boundary mismatch.");
+  return endOffset;
+}
+
+function validateBinaryFbx(bytes: Uint8Array): void {
+  const header = new TextDecoder().decode(bytes.slice(0, 20));
+  if (header !== "Kaydara FBX Binary  ") throw new Error("Invalid FBX binary header.");
+  if (readU32(bytes, 23) !== 7400) throw new Error("Unexpected FBX binary version.");
+  let cursor = 27;
+  while (!isNullRecord(bytes, cursor)) cursor = nodeEndOffset(bytes, cursor);
+  cursor += 13;
+  while (cursor % 16 !== 0) cursor += 1;
+  const footerStart = cursor;
+  const expectedFooterLength = footerMagic.length + 4 + 4 + 120 + footerMagic.length;
+  if (footerStart + expectedFooterLength !== bytes.length) throw new Error("Invalid FBX footer length.");
+  if (!footerMagic.every((value, index) => bytes[footerStart + index] === value)) throw new Error("Missing FBX footer magic.");
+  if (readU32(bytes, footerStart + footerMagic.length + 4) !== 7400) throw new Error("Invalid FBX footer version.");
+  const finalMagicOffset = bytes.length - footerMagic.length;
+  if (!footerMagic.every((value, index) => bytes[finalMagicOffset + index] === value)) throw new Error("Invalid trailing FBX footer magic.");
+}
+
 export function buildBinaryFbx(input: FbxExportInput): Uint8Array {
   const graph = buildGraph(input);
   validateGraph(graph);
@@ -423,5 +593,8 @@ export function buildBinaryFbx(input: FbxExportInput): Uint8Array {
   writer.writeU32(7400);
   for (const node of graph.nodes) writeNode(writer, node);
   writer.writeBytes(new Uint8Array(13));
-  return writer.toUint8Array();
+  writeFooter(writer);
+  const bytes = writer.toUint8Array();
+  validateBinaryFbx(bytes);
+  return bytes;
 }

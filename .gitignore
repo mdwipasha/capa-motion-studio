@@ -1,8 +1,20 @@
 node_modules/
 dist/
+dist-*/
 src-tauri/target/
 *.rma
 .env
+.venv/
+.venv*/
 .tmp-ai-pipeline-check/
 __pycache__/
 *.pyc
+
+# Python / PyInstaller build artifacts
+python/build/
+python/dist/
+python/*.spec
+
+# Local AI runtime packaging output
+dist-ai-runtime/
+*.zip.download

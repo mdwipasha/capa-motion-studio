@@ -1,6 +1,11 @@
 export interface RuntimeStatus {
   readonly python: boolean;
   readonly ffmpeg: boolean;
+  readonly aiRuntime: boolean;
+  readonly aiRuntimeReady: boolean;
+  readonly aiRuntimeMode: "bundled" | "system-python" | "missing";
+  readonly aiRuntimePath: string;
+  readonly aiRuntimeDownloadUrl: string;
   readonly aiModel: boolean;
   readonly aiModelPath: string;
   readonly portableMode: boolean;

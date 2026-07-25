@@ -27,5 +27,7 @@ export async function checkForUpdates(): Promise<string> {
 
 export async function installPlaceholderModel(): Promise<void> { await invoke("install_placeholder_model"); }
 export async function removePlaceholderModel(): Promise<void> { await invoke("remove_placeholder_model"); }
+export async function removeAiRuntime(): Promise<void> { await invoke("remove_ai_runtime"); }
 export function downloadAiModel(): Promise<string> { return invoke<string>("download_ai_model"); }
+export function downloadAiRuntime(): Promise<string> { return invoke<string>("download_ai_runtime"); }
 export async function getLaunchProject(): Promise<string | null> { return invoke<string | null>("get_launch_project"); }

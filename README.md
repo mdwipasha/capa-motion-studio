@@ -68,7 +68,7 @@ The core editor and local AI pipeline foundation are usable: projects can be sav
 - Data-driven retarget engine with separate R6/R15 bone-mapping JSON files, quaternion-based rotation conversion, and editable generated poses
 - Fast, Balanced, and High Quality cleanup presets for sampling, rotation smoothing, jitter reduction, and keyframe reduction
 - Before / After / Split preview modes for source-pose comparison against the Roblox rig preview
-- Local Binary FBX 7.4 animation-only export with generated R6/R15 skeleton hierarchy plus translation and rotation curves; scale curves are written only when used
+- Local Binary FBX 7.4 animation-only export with an Armature-rooted R6/R15 skeleton hierarchy, terminal leaf bones, and translation/rotation curves; scale curves are written only when used
 
 ## Supported formats
 
@@ -80,18 +80,31 @@ The core editor and local AI pipeline foundation are usable: projects can be sav
 
 ## Local AI pipeline
 
-Install and start the local backend before using the **AI** toolbar button:
+The AI pipeline is local-only. The **AI** toolbar button appears after both pieces are ready:
+
+- CapaMotion AI Runtime: a downloadable sidecar containing `capamotion-ai.exe`, `ffmpeg.exe`, and `ffprobe.exe`.
+- MediaPipe Pose Landmarker model: downloaded from Help - AI Models.
+
+Development builds can still use system Python and FFmpeg:
 
 ```bash
 python -m pip install -r python/requirements.txt
 pnpm ai
 ```
 
-FFmpeg and `ffprobe` must be on `PATH`. Supported video inputs are MP4, MOV, and AVI. The pipeline binds only to `127.0.0.1` and sends no video, frames, or pose data to cloud services. Its output is retarget-free internal Motion Data and is persisted as optional AI motion data in `.rma` files.
+Supported video inputs are MP4, MOV, and AVI. The pipeline binds only to `127.0.0.1` and sends no video, frames, or pose data to cloud services. Its output is retarget-free internal Motion Data and is persisted as optional AI motion data in `.rma` files.
 
 ## AI models, release, and recovery
 
-Use **Help → AI Models** to download and manage the local MediaPipe Pose Landmarker model. The Video to Animation menu is hidden until the model is installed. When a video is submitted, the app attempts to start the local AI service automatically. Development builds fall back to `python python/server.py`; release builds should include a bundled `capamotion-ai.exe` sidecar so users do not need to know how to start Python manually.
+Use **Help - AI Models** to download and manage the local AI runtime bundle and MediaPipe Pose Landmarker model. The Video to Animation menu is hidden until both are ready. When a video is submitted, the app starts the sidecar service automatically and prepends the runtime folder to `PATH` so bundled FFmpeg tools are used. Development builds fall back to system Python and FFmpeg when no sidecar is installed.
+
+Build the Windows AI runtime bundle with:
+
+```powershell
+pnpm ai:runtime -- -FfmpegDir C:\path\to\ffmpeg\bin
+```
+
+The script creates `dist-ai-runtime/capamotion-ai-runtime-windows-x64.zip`. Publish that zip to the URL configured by `CAPAMOTION_AI_RUNTIME_URL` at build time, or to the default GitHub Releases path shown in Help - AI Models.
 
 Release configuration registers `.rma` as a CapaMotion project type and launch arguments are validated before opening a project. Help provides About, runtime diagnostics, logs, keyboard shortcuts, model management, and update-check readiness. Interrupted sessions offer the latest cached recent project for recovery.
 
@@ -106,8 +119,8 @@ Version `0.8.0` is verified across package, Cargo, and Tauri manifests during pr
 
 ## Troubleshooting
 
-- **AI runtime unavailable:** install Python dependencies and add FFmpeg to `PATH`.
-- **No AI model:** use Help → AI Models to download the local MediaPipe Pose Landmarker model.
+- **AI runtime unavailable:** use Help - AI Models to download the CapaMotion AI Runtime, or install Python and FFmpeg for development.
+- **No AI model:** use Help - AI Models to download the local MediaPipe Pose Landmarker model.
 - **Recovered session shown:** restore the snapshot or dismiss it and open `.rma` manually.
 - **Release build is slow or fails:** install required Windows SDK/WiX tooling and retry `pnpm release`.
 
@@ -115,7 +128,7 @@ Version `0.8.0` is verified across package, Cargo, and Tauri manifests during pr
 
 After AI processing finishes, choose **Create Roblox Draft**, select the cleanup quality, and build the timeline for the active project rig. Both R6 and R15 are supported through separate external mapping files. The generated keyframes are normal editor poses: they can be selected, changed, removed, and saved like manually authored data.
 
-The FBX button exports a Binary FBX 7.4 animation-only file with the project rig hierarchy, bind pose, animation stack/layer, and connected translation/rotation curves. Scale curves are omitted unless scale is actually animated. Mesh, material, texture, camera, light, facial, finger, and physics data are intentionally not generated.
+The FBX button exports a Binary FBX 7.4 animation-only file with an Armature-rooted project rig hierarchy, terminal leaf bones, animation stack/layer, and connected translation/rotation curves. A bind pose is intentionally omitted because animation-only output contains no mesh skin or cluster data. Scale curves are omitted unless scale is actually animated. Mesh, material, texture, camera, light, facial, finger, and physics data are intentionally not generated.
 
 ## Development progress
 
@@ -147,8 +160,9 @@ Validate and refine FBX import compatibility, then evolve cleanup with foot lock
 - Fixed FFmpeg extraction progress so Video to Animation no longer appears stuck at 15%.
 - Added MediaPipe Tasks support for environments where `mediapipe.solutions` is unavailable.
 - Added automatic AI service startup with support for a future bundled `capamotion-ai.exe` runtime sidecar.
+- Added downloadable AI runtime bundle management so release users can run Video to Animation without manually installing Python or FFmpeg.
 - Stabilized retarget root/torso mapping so generated Roblox drafts remain upright instead of inheriting a sideways hip-axis rotation.
-- Rewrote FBX export as Binary FBX 7.4 animation-only output with validated skeleton, anatomical local rest transforms, global bind-pose matrices, animation stack/layer, curve nodes, curves, and connections; partial ASCII FBX animation import remains available.
+- Rewrote FBX export as Binary FBX 7.4 animation-only output with validated Armature-rooted skeletons, terminal leaf bones, typed time metadata, standard FBX footer, animation stack/layer, curve nodes, curves, and connections; partial ASCII FBX animation import remains available.
 
 ### 0.8.0 - Release and user experience foundation
 
