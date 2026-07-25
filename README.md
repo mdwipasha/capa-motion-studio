@@ -148,7 +148,7 @@ Validate and refine FBX import compatibility, then evolve cleanup with foot lock
 - Added MediaPipe Tasks support for environments where `mediapipe.solutions` is unavailable.
 - Added automatic AI service startup with support for a future bundled `capamotion-ai.exe` runtime sidecar.
 - Stabilized retarget root/torso mapping so generated Roblox drafts remain upright instead of inheriting a sideways hip-axis rotation.
-- Rewrote FBX export as Binary FBX 7.4 animation-only output with validated skeleton, bind pose, animation stack/layer, curve nodes, curves, and connections; partial ASCII FBX animation import remains available.
+- Rewrote FBX export as Binary FBX 7.4 animation-only output with validated skeleton, anatomical local rest transforms, global bind-pose matrices, animation stack/layer, curve nodes, curves, and connections; partial ASCII FBX animation import remains available.
 
 ### 0.8.0 - Release and user experience foundation
 

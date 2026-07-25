@@ -123,7 +123,10 @@
 * [x] FFmpeg extraction progress no longer stalls at 15%
 * [x] MediaPipe Tasks detector fallback
 * [x] Upright retarget root and torso mapping
-* [x] FBX export includes translation, rotation, and scale curves
+* [x] Binary FBX 7.4 animation-only export
+* [x] FBX rest-pose local transforms and global bind-pose matrices
+* [x] R6/R15 skeleton hierarchy validation (R15: 16 bones)
+* [x] FBX translation and rotation curves (scale curves only when animated)
 * [x] ASCII FBX animation curve import
 * [ ] Bundled no-Python AI runtime sidecar
 * [ ] Binary FBX import

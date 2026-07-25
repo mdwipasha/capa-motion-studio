@@ -12,7 +12,7 @@ export interface FbxExportInput {
 
 type FbxProperty = "Lcl Translation" | "Lcl Rotation" | "Lcl Scaling";
 interface NumericArrayProperty {
-  readonly kind: "d" | "i" | "l";
+  readonly kind: "d" | "i" | "l" | "f";
   readonly values: readonly number[];
 }
 
@@ -46,6 +46,7 @@ const layerId = 201;
 const modelBaseId = 1_000_000;
 const curveBaseId = 2_000_000;
 const poseId = 3_000_000;
+const attributeBaseId = 4_000_000;
 const requiredR15Bones = ["Root", "LowerTorso", "UpperTorso", "Head", "LeftUpperArm", "LeftLowerArm", "LeftHand", "RightUpperArm", "RightLowerArm", "RightHand", "LeftUpperLeg", "LeftLowerLeg", "LeftFoot", "RightUpperLeg", "RightLowerLeg", "RightFoot"] as const;
 
 function modelId(index: number): number { return modelBaseId + index; }
@@ -55,11 +56,17 @@ function formatName(value: string): string { return value.replace(/[^\w .-]/g, "
 function d(values: readonly number[]): NumericArrayProperty { return { kind: "d", values }; }
 function i(values: readonly number[]): NumericArrayProperty { return { kind: "i", values }; }
 function l(values: readonly number[]): NumericArrayProperty { return { kind: "l", values }; }
+function f(values: readonly number[]): NumericArrayProperty { return { kind: "f", values }; }
 
 function poseValue(frame: PoseFrame, boneId: string, property: FbxProperty, axis: "x" | "y" | "z"): number {
   if (property === "Lcl Translation") return finite(frame.positions?.[boneId]?.[axis] ?? 0);
   if (property === "Lcl Scaling") return finite(frame.scales?.[boneId]?.[axis] ?? 1, 1);
   return finite(frame.rotations[boneId]?.[axis] ?? 0);
+}
+
+function restValue(bone: RigBoneDefinition, property: FbxProperty, axis: "x" | "y" | "z"): number {
+  if (property !== "Lcl Translation") return property === "Lcl Scaling" ? 1 : 0;
+  return finite(bone.position[axis === "x" ? 0 : axis === "y" ? 1 : 2]);
 }
 
 function hasScaleAnimation(poses: readonly PoseFrame[]): boolean {
@@ -115,30 +122,83 @@ function curveNode(id: number, boneId: string, property: FbxProperty): FbxNode {
   };
 }
 
-function animationCurve(id: number, boneId: string, property: FbxProperty, axis: "X" | "Y" | "Z", poses: readonly PoseFrame[], fps: number): FbxNode {
-  const times = poses.map((pose) => Math.round(pose.frame / fps * fbxTicksPerSecond));
-  const values = poses.map((pose) => poseValue(pose, boneId, property, axisKey(axis)));
+function animationCurve(id: number, bone: RigBoneDefinition, property: FbxProperty, axis: "X" | "Y" | "Z", poses: readonly PoseFrame[], fps: number): FbxNode {
+  const orderedPoses = [...poses].sort((left, right) => left.frame - right.frame);
+  const times = orderedPoses.map((pose) => Math.round(pose.frame / fps * fbxTicksPerSecond));
+  const key = axisKey(axis);
+  let offset = property === "Lcl Scaling" ? 1 : 0;
+  const values = orderedPoses.map((pose) => {
+    const hasValue = property === "Lcl Translation"
+      ? pose.positions?.[bone.id]?.[key] !== undefined
+      : property === "Lcl Scaling"
+        ? pose.scales?.[bone.id]?.[key] !== undefined
+        : pose.rotations[bone.id]?.[key] !== undefined;
+    if (hasValue) offset = poseValue(pose, bone.id, property, key);
+    return restValue(bone, property, key) + (property === "Lcl Scaling" ? offset - 1 : offset);
+  });
   return {
     name: "AnimationCurve",
-    properties: [id, `AnimCurve::${boneId}_${property.replace("Lcl ", "")}_${axis}`, ""],
+    properties: [id, `AnimCurve::${bone.id}_${property.replace("Lcl ", "")}_${axis}`, ""],
     children: [
       { name: "Default", properties: [property === "Lcl Scaling" ? 1 : 0] },
       { name: "KeyVer", properties: [4008] },
       { name: "KeyTime", properties: [l(times)] },
-      { name: "KeyValueFloat", properties: [d(values)] },
+      { name: "KeyValueFloat", properties: [f(values)] },
       { name: "KeyAttrFlags", properties: [i(values.map(() => 24836))] },
-      { name: "KeyAttrDataFloat", properties: [d(values.flatMap(() => [0, 0, 255790911, 0]))] },
+      { name: "KeyAttrDataFloat", properties: [f(values.flatMap(() => [0, 0, 255790911, 0]))] },
       { name: "KeyAttrRefCount", properties: [i(values.map(() => 1))] }
     ]
   };
 }
 
-function poseNode(bone: RigBoneDefinition, id: number): FbxNode {
+function nodeAttributeNode(id: number, displayLength: number): FbxNode {
+  return {
+    name: "NodeAttribute",
+    properties: [id, "NodeAttribute::", "LimbNode"],
+    children: [
+      { name: "Version", properties: [100] },
+      properties70([p("Size", "double", "Number", displayLength)]),
+      { name: "TypeFlags", properties: ["Skeleton"] }
+    ]
+  };
+}
+
+function boneDisplayLength(bone: RigBoneDefinition, bones: readonly RigBoneDefinition[]): number {
+  const child = bones.find((candidate) => candidate.parentId === bone.id);
+  if (child) {
+    const [x, y, z] = child.position;
+    return Math.max(0.1, Math.hypot(x, y, z));
+  }
+  return Math.max(0.1, Math.max(...bone.scale));
+}
+
+function computeWorldPositions(bones: readonly RigBoneDefinition[]): ReadonlyMap<string, readonly [number, number, number]> {
+  const byId = new Map(bones.map((bone) => [bone.id, bone]));
+  const resolved = new Map<string, readonly [number, number, number]>();
+  function resolve(boneId: string): readonly [number, number, number] {
+    const cached = resolved.get(boneId);
+    if (cached) return cached;
+    const bone = byId.get(boneId);
+    if (!bone) return [0, 0, 0];
+    const parent = bone.parentId ? resolve(bone.parentId) : ([0, 0, 0] as const);
+    const world: readonly [number, number, number] = [
+      finite(bone.position[0]) + parent[0],
+      finite(bone.position[1]) + parent[1],
+      finite(bone.position[2]) + parent[2]
+    ];
+    resolved.set(boneId, world);
+    return world;
+  }
+  for (const bone of bones) resolve(bone.id);
+  return resolved;
+}
+
+function poseNode(worldPosition: readonly [number, number, number], id: number): FbxNode {
   const matrix = [
-    1, 0, 0, finite(bone.position[0]),
-    0, 1, 0, finite(bone.position[1]),
-    0, 0, 1, finite(bone.position[2]),
-    0, 0, 0, 1
+    1, 0, 0, 0,
+    0, 1, 0, 0,
+    0, 0, 1, 0,
+    finite(worldPosition[0]), finite(worldPosition[1]), finite(worldPosition[2]), 1
   ];
   return { name: "PoseNode", children: [{ name: "Node", properties: [id] }, { name: "Matrix", properties: [d(matrix)] }] };
 }
@@ -148,6 +208,7 @@ function buildGraph(input: FbxExportInput): FbxGraph {
   validateRig(input.rigType, rig.bones);
   const fps = input.motionData.timeline.fps;
   const poses = input.poses.length > 0 ? input.poses : [{ frame: 0, rotations: {} }];
+  validatePoses(poses, fps);
   const includeScale = hasScaleAnimation(poses);
   const objects: FbxNode[] = [];
   const objectIds = new Set<number>([stackId, layerId, poseId]);
@@ -159,12 +220,18 @@ function buildGraph(input: FbxExportInput): FbxGraph {
     objectIds.add(id);
     objects.push(modelNode(bone, id));
     connections.push({ type: "OO", source: id, destination: bone.parentId ? modelId(rig.bones.findIndex((candidate) => candidate.id === bone.parentId)) : rootNodeId });
+
+    const attributeId = attributeBaseId + index;
+    objectIds.add(attributeId);
+    objects.push(nodeAttributeNode(attributeId, boneDisplayLength(bone, rig.bones)));
+    connections.push({ type: "OO", source: attributeId, destination: id });
   }
 
+  const worldPositions = computeWorldPositions(rig.bones);
   objects.push({
     name: "Pose",
     properties: [poseId, "Pose::BindPose", "BindPose"],
-    children: [{ name: "Type", properties: ["BindPose"] }, { name: "Version", properties: [100] }, { name: "NbPoseNodes", properties: [rig.bones.length] }, ...rig.bones.map((bone, index) => poseNode(bone, modelId(index)))]
+    children: [{ name: "Type", properties: ["BindPose"] }, { name: "Version", properties: [100] }, { name: "NbPoseNodes", properties: [rig.bones.length] }, ...rig.bones.map((bone, index) => poseNode(worldPositions.get(bone.id) ?? [0, 0, 0], modelId(index)))]
   });
 
   objects.push({ name: "AnimationStack", properties: [stackId, "AnimStack::Take 001", ""], children: [properties70([p("LocalStart", "KTime", "Time", 0), p("LocalStop", "KTime", "Time", Math.round(input.motionData.timeline.duration * fbxTicksPerSecond)), p("ReferenceStart", "KTime", "Time", 0), p("ReferenceStop", "KTime", "Time", Math.round(input.motionData.timeline.duration * fbxTicksPerSecond))])] });
@@ -183,7 +250,7 @@ function buildGraph(input: FbxExportInput): FbxGraph {
       for (const axis of ["X", "Y", "Z"] as const) {
         const curveId = nextCurveId++;
         objectIds.add(curveId);
-        objects.push(animationCurve(curveId, bone.id, property, axis, poses, fps));
+        objects.push(animationCurve(curveId, bone, property, axis, poses, fps));
         const target = `d|${axis}` as const;
         curveTargets.push({ curveId, nodeId, axis: target });
         connections.push({ type: "OP", source: curveId, destination: nodeId, property: target });
@@ -205,7 +272,7 @@ function buildGraph(input: FbxExportInput): FbxGraph {
     },
     { name: "Documents", children: [{ name: "Count", properties: [1] }, { name: "Document", properties: [documentId, `Document::${formatName(input.projectName)}`, "Scene"], children: [properties70([p("SourceObject", "object", "", 0), p("ActiveAnimStackName", "KString", "", "Take 001")]), { name: "RootNode", properties: [rootNodeId] }] }] },
     { name: "References" },
-    { name: "Definitions", children: [{ name: "Version", properties: [100] }, { name: "Count", properties: [objects.length] }, { name: "ObjectType", properties: ["Model"], children: [{ name: "Count", properties: [rig.bones.length] }] }, { name: "ObjectType", properties: ["AnimationStack"], children: [{ name: "Count", properties: [1] }] }, { name: "ObjectType", properties: ["AnimationLayer"], children: [{ name: "Count", properties: [1] }] }, { name: "ObjectType", properties: ["AnimationCurveNode"], children: [{ name: "Count", properties: [rig.bones.length * animatedProperties.length] }] }, { name: "ObjectType", properties: ["AnimationCurve"], children: [{ name: "Count", properties: [rig.bones.length * animatedProperties.length * 3] }] }, { name: "ObjectType", properties: ["Pose"], children: [{ name: "Count", properties: [1] }] }] },
+    { name: "Definitions", children: [{ name: "Version", properties: [100] }, { name: "Count", properties: [objects.length] }, { name: "ObjectType", properties: ["Model"], children: [{ name: "Count", properties: [rig.bones.length] }] }, { name: "ObjectType", properties: ["NodeAttribute"], children: [{ name: "Count", properties: [rig.bones.length] }] }, { name: "ObjectType", properties: ["AnimationStack"], children: [{ name: "Count", properties: [1] }] }, { name: "ObjectType", properties: ["AnimationLayer"], children: [{ name: "Count", properties: [1] }] }, { name: "ObjectType", properties: ["AnimationCurveNode"], children: [{ name: "Count", properties: [rig.bones.length * animatedProperties.length] }] }, { name: "ObjectType", properties: ["AnimationCurve"], children: [{ name: "Count", properties: [rig.bones.length * animatedProperties.length * 3] }] }, { name: "ObjectType", properties: ["Pose"], children: [{ name: "Count", properties: [1] }] }] },
     { name: "Objects", children: objects },
     { name: "Connections", children: connections.map((connection) => ({ name: "C", properties: connection.type === "OO" ? [connection.type, connection.source, connection.destination] : [connection.type, connection.source, connection.destination, connection.property ?? ""] })) },
     { name: "Takes", children: [{ name: "Current", properties: ["Take 001"] }, { name: "Take", properties: ["Take 001"], children: [{ name: "FileName", properties: ["Take_001.tak"] }, { name: "LocalTime", properties: [0, Math.round(input.motionData.timeline.duration * fbxTicksPerSecond)] }, { name: "ReferenceTime", properties: [0, Math.round(input.motionData.timeline.duration * fbxTicksPerSecond)] }] }] }
@@ -227,11 +294,37 @@ function validateRig(rigType: RigType, bones: readonly RigBoneDefinition[]): voi
   for (const bone of bones) {
     if (bone.parentId && !ids.has(bone.parentId)) errors.push(`Missing parent ${bone.parentId} for ${bone.id}.`);
   }
+  for (const bone of bones) {
+    const ancestors = new Set<string>();
+    let parentId = bone.parentId;
+    while (parentId) {
+      if (ancestors.has(parentId) || parentId === bone.id) {
+        errors.push(`Hierarchy cycle detected for ${bone.id}.`);
+        break;
+      }
+      ancestors.add(parentId);
+      parentId = bones.find((candidate) => candidate.id === parentId)?.parentId ?? null;
+    }
+  }
   if (rigType === "R15") {
     const missing = requiredR15Bones.filter((boneId) => !ids.has(boneId));
     if (bones.length !== requiredR15Bones.length || missing.length > 0) errors.push(`R15 template must contain 16 Roblox bones. Missing: ${missing.join(", ") || "none"}.`);
   }
   if (errors.length > 0) throw new Error(`FBX skeleton validation failed: ${errors.join(" ")}`);
+}
+
+function validatePoses(poses: readonly PoseFrame[], fps: number): void {
+  const errors: string[] = [];
+  if (!Number.isFinite(fps) || fps <= 0) errors.push("Timeline FPS must be greater than zero.");
+  for (const pose of poses) {
+    if (!Number.isFinite(pose.frame) || pose.frame < 0) errors.push(`Invalid pose frame ${pose.frame}.`);
+    for (const transformSet of [pose.rotations, pose.positions ?? {}, pose.scales ?? {}]) {
+      for (const [boneId, transform] of Object.entries(transformSet)) {
+        if (!Number.isFinite(transform.x) || !Number.isFinite(transform.y) || !Number.isFinite(transform.z)) errors.push(`Invalid pose transform for ${boneId} at frame ${pose.frame}.`);
+      }
+    }
+  }
+  if (errors.length > 0) throw new Error(`FBX animation validation failed: ${errors.join(" ")}`);
 }
 
 function validateGraph(graph: FbxGraph): void {
@@ -264,6 +357,7 @@ class BinaryWriter {
   writeI32(value: number): void { const view = new DataView(new ArrayBuffer(4)); view.setInt32(0, value, true); this.writeBytes(new Uint8Array(view.buffer)); }
   writeI64(value: bigint): void { const view = new DataView(new ArrayBuffer(8)); view.setBigInt64(0, value, true); this.writeBytes(new Uint8Array(view.buffer)); }
   writeF64(value: number): void { const view = new DataView(new ArrayBuffer(8)); view.setFloat64(0, value, true); this.writeBytes(new Uint8Array(view.buffer)); }
+  writeF32(value: number): void { const view = new DataView(new ArrayBuffer(4)); view.setFloat32(0, value, true); this.writeBytes(new Uint8Array(view.buffer)); }
   patchU32(offset: number, value: number): void { this.bytes[offset] = value & 0xff; this.bytes[offset + 1] = (value >>> 8) & 0xff; this.bytes[offset + 2] = (value >>> 16) & 0xff; this.bytes[offset + 3] = (value >>> 24) & 0xff; }
   toUint8Array(): Uint8Array { return new Uint8Array(this.bytes); }
 }
@@ -278,10 +372,11 @@ function propertyBytes(value: PropertyValue): Uint8Array {
     writer.writeU8(value.kind.charCodeAt(0));
     writer.writeU32(value.values.length);
     writer.writeU32(0);
-    writer.writeU32(value.values.length * (value.kind === "i" ? 4 : 8));
+    writer.writeU32(value.values.length * (value.kind === "i" || value.kind === "f" ? 4 : 8));
     for (const item of value.values) {
       if (value.kind === "i") writer.writeI32(Math.round(item));
       else if (value.kind === "l") writer.writeI64(BigInt(Math.round(item)));
+      else if (value.kind === "f") writer.writeF32(item);
       else writer.writeF64(item);
     }
   } else if (typeof value === "string") {
