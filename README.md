@@ -120,7 +120,7 @@ Phase 3 AI Tools use the same readiness gate. Video to Animation, Text to Motion
 
 Release configuration registers `.rma` as a CapaMotion project type and launch arguments are validated before opening a project. Help provides About, runtime diagnostics, logs, keyboard shortcuts, model management, and update-check readiness. Interrupted sessions offer the latest cached recent project for recovery.
 
-Version `0.8.0` is verified across package, Cargo, and Tauri manifests during prebuild. Signed auto-update artifacts are enabled, but publishing an updater requires a GitHub Releases endpoint, updater public key, and private signing key supplied through CI secrets.
+Version `0.9.0` is verified across package, Cargo, and Tauri manifests during prebuild. Signed auto-update artifacts are enabled, but publishing an updater requires a GitHub Releases endpoint, updater public key, and private signing key supplied through CI secrets.
 
 ## Release process
 
@@ -174,6 +174,7 @@ Validate and refine FBX import/export compatibility, then replace the local prom
 - Added MediaPipe Tasks support for environments where `mediapipe.solutions` is unavailable.
 - Added automatic AI service startup with support for a future bundled `capamotion-ai.exe` runtime sidecar.
 - Added downloadable AI runtime bundle management so release users can run Video to Animation without manually installing Python or FFmpeg.
+- Replaced simulated AI runtime download progress with native download/extract progress events to avoid the 92% stall and long PowerShell blocking behavior.
 - Added Phase 3 AI Tools: Text to Motion, Motion Library, Auto Loop, and Animation Templates, all gated behind local AI runtime/model readiness.
 - Stabilized retarget root/torso mapping so generated Roblox drafts remain upright instead of inheriting a sideways hip-axis rotation.
 - Rewrote FBX export as Binary FBX 7.4 animation-only output with validated Armature-rooted skeletons, terminal leaf bones, typed time metadata, standard FBX footer, animation stack/layer, curve nodes, curves, and connections; partial ASCII FBX animation import remains available.

@@ -1,6 +1,6 @@
 [package]
 name = "capa-motion-studio"
-version = "0.8.0"
+version = "0.9.0"
 description = "Desktop foundation for Roblox animation workflows"
 authors = ["Capa"]
 edition = "2021"
@@ -16,3 +16,5 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
