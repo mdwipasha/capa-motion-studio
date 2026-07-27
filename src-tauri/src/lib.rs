@@ -1,5 +1,5 @@
-use std::{env, fs, net::TcpStream, path::PathBuf, process::{Command, Stdio}, time::Duration};
-use tauri::{AppHandle, Manager};
+use std::{env, fs, io::{Read, Write}, net::TcpStream, path::{Path, PathBuf}, process::{Command, Stdio}, time::Duration};
+use tauri::{AppHandle, Emitter, Manager};
 
 const POSE_MODEL_FILE: &str = "pose_landmarker_lite.task";
 const POSE_MODEL_URL: &str = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
@@ -39,6 +39,13 @@ struct ReleaseInfo {
     version: &'static str,
     build_date: &'static str,
     license: &'static str,
+}
+
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RuntimeDownloadProgress {
+    progress: u8,
+    message: String,
 }
 
 fn portable_directory() -> Option<PathBuf> {
@@ -240,6 +247,72 @@ fn escape_powershell_literal(value: &str) -> String {
     value.replace('\'', "''")
 }
 
+fn emit_runtime_progress(app: &AppHandle, progress: u8, message: impl Into<String>) {
+    let _ = app.emit("ai-runtime-download-progress", RuntimeDownloadProgress { progress, message: message.into() });
+}
+
+fn download_file_with_progress(app: &AppHandle, url: &str, destination: &Path) -> Result<(), String> {
+    emit_runtime_progress(app, 2, "Connecting to runtime download...");
+    let client = reqwest::blocking::Client::builder()
+        .timeout(None)
+        .build()
+        .map_err(|error| format!("Unable to prepare runtime downloader: {error}"))?;
+    let mut response = client.get(url).send().map_err(|error| format!("Unable to download AI runtime: {error}"))?;
+    if !response.status().is_success() {
+        return Err(format!("AI runtime download failed with HTTP status {}.", response.status()));
+    }
+    let total = response.content_length().unwrap_or(0);
+    let mut file = fs::File::create(destination).map_err(|error| error.to_string())?;
+    let mut downloaded = 0_u64;
+    let mut buffer = [0_u8; 1024 * 128];
+    loop {
+        let count = response.read(&mut buffer).map_err(|error| format!("AI runtime download interrupted: {error}"))?;
+        if count == 0 {
+            break;
+        }
+        file.write_all(&buffer[..count]).map_err(|error| error.to_string())?;
+        downloaded += count as u64;
+        if total > 0 {
+            let percent = 5 + ((downloaded.saturating_mul(70) / total).min(70) as u8);
+            emit_runtime_progress(app, percent, format!("Downloading runtime {}%", percent));
+        }
+    }
+    file.flush().map_err(|error| error.to_string())?;
+    let size = fs::metadata(destination).map_err(|error| error.to_string())?.len();
+    if size < 1_000_000 {
+        return Err("Downloaded AI runtime archive is incomplete.".to_string());
+    }
+    emit_runtime_progress(app, 78, "Runtime archive downloaded.");
+    Ok(())
+}
+
+fn extract_zip_with_progress(app: &AppHandle, archive: &Path, destination: &Path) -> Result<(), String> {
+    emit_runtime_progress(app, 80, "Extracting runtime archive...");
+    let file = fs::File::open(archive).map_err(|error| error.to_string())?;
+    let mut zip = zip::ZipArchive::new(file).map_err(|error| format!("AI runtime archive is not a valid zip file: {error}"))?;
+    let total = zip.len().max(1);
+    for index in 0..zip.len() {
+        let mut entry = zip.by_index(index).map_err(|error| error.to_string())?;
+        let Some(enclosed_name) = entry.enclosed_name().map(|path| path.to_owned()) else {
+            continue;
+        };
+        let output_path = destination.join(enclosed_name);
+        if entry.is_dir() {
+            fs::create_dir_all(&output_path).map_err(|error| error.to_string())?;
+        } else {
+            if let Some(parent) = output_path.parent() {
+                fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+            }
+            let mut output = fs::File::create(&output_path).map_err(|error| error.to_string())?;
+            std::io::copy(&mut entry, &mut output).map_err(|error| error.to_string())?;
+        }
+        let percent = 80 + (((index + 1) * 15 / total) as u8).min(15);
+        emit_runtime_progress(app, percent, format!("Extracting runtime {}%", percent));
+    }
+    emit_runtime_progress(app, 96, "Runtime archive extracted.");
+    Ok(())
+}
+
 fn powershell_download(url: &str, destination: &PathBuf) -> Result<(), String> {
     let script = format!(
         "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -Uri '{}' -OutFile '{}'",
@@ -253,23 +326,6 @@ fn powershell_download(url: &str, destination: &PathBuf) -> Result<(), String> {
     if !output.status.success() {
         let message = String::from_utf8_lossy(&output.stderr).trim().to_string();
         return Err(if message.is_empty() { "Download failed.".to_string() } else { message });
-    }
-    Ok(())
-}
-
-fn powershell_expand_archive(archive: &PathBuf, destination: &PathBuf) -> Result<(), String> {
-    let script = format!(
-        "Expand-Archive -LiteralPath '{}' -DestinationPath '{}' -Force",
-        escape_powershell_literal(&archive.display().to_string()),
-        escape_powershell_literal(&destination.display().to_string())
-    );
-    let output = Command::new("powershell")
-        .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &script])
-        .output()
-        .map_err(|error| format!("Unable to extract AI runtime: {error}"))?;
-    if !output.status.success() {
-        let message = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        return Err(if message.is_empty() { "AI runtime extraction failed.".to_string() } else { message });
     }
     Ok(())
 }
@@ -289,8 +345,7 @@ fn find_file_recursive(folder: &PathBuf, file_name: &str) -> Option<PathBuf> {
     None
 }
 
-#[tauri::command]
-fn download_ai_runtime(app: AppHandle) -> Result<String, String> {
+fn download_ai_runtime_blocking(app: AppHandle) -> Result<String, String> {
     if !ai_runtime_download_configured() {
         return Err("AI runtime download is not configured for this build. Build the runtime zip, publish it, then rebuild CapaMotion with CAPAMOTION_AI_RUNTIME_URL pointing to that zip.".to_string());
     }
@@ -306,8 +361,9 @@ fn download_ai_runtime(app: AppHandle) -> Result<String, String> {
         fs::remove_dir_all(&staging).map_err(|error| error.to_string())?;
     }
     fs::create_dir_all(&staging).map_err(|error| error.to_string())?;
-    powershell_download(ai_runtime_url(), &archive)?;
-    powershell_expand_archive(&archive, &staging)?;
+    emit_runtime_progress(&app, 1, "Preparing AI runtime installation...");
+    download_file_with_progress(&app, ai_runtime_url(), &archive)?;
+    extract_zip_with_progress(&app, &archive, &staging)?;
     let sidecar = find_file_recursive(&staging, AI_RUNTIME_EXE).ok_or_else(|| format!("AI runtime archive does not contain {AI_RUNTIME_EXE}."))?;
     let sidecar_folder = sidecar.parent().ok_or_else(|| "AI runtime archive has an invalid layout.".to_string())?.to_path_buf();
     if !sidecar_folder.join(FFMPEG_EXE).exists() || !sidecar_folder.join(FFPROBE_EXE).exists() {
@@ -318,6 +374,7 @@ fn download_ai_runtime(app: AppHandle) -> Result<String, String> {
     if runtime_dir.exists() {
         fs::remove_dir_all(&runtime_dir).map_err(|error| error.to_string())?;
     }
+    emit_runtime_progress(&app, 97, "Installing runtime files...");
     fs::rename(&sidecar_folder, &runtime_dir).or_else(|_| {
         fs::create_dir_all(&runtime_dir)?;
         for entry in fs::read_dir(&sidecar_folder)? {
@@ -331,7 +388,15 @@ fn download_ai_runtime(app: AppHandle) -> Result<String, String> {
     }).map_err(|error| error.to_string())?;
     let _ = fs::remove_file(&archive);
     let _ = fs::remove_dir_all(&staging);
+    emit_runtime_progress(&app, 100, "AI runtime is ready.");
     Ok(runtime_dir.join(AI_RUNTIME_EXE).display().to_string())
+}
+
+#[tauri::command]
+async fn download_ai_runtime(app: AppHandle) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || download_ai_runtime_blocking(app))
+        .await
+        .map_err(|error| format!("AI runtime task failed: {error}"))?
 }
 
 #[tauri::command]

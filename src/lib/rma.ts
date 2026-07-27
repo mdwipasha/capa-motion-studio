@@ -4,7 +4,7 @@ import { rigTypes, type ProjectMetadata } from "@/types/project";
 import { rmaFormatVersion, type RmaProjectFile } from "@/types/rma";
 import type { BoneRotation, BoneVector, PoseFrame } from "@/types/rig";
 
-export const appVersion = "0.8.0";
+export const appVersion = "0.9.0";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

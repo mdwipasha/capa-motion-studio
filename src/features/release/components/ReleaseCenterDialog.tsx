@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { BookOpen, Bug, ChevronLeft, Cpu, ExternalLink, FolderOpen, Info, Keyboard, LoaderCircle, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { checkForUpdates, checkRuntime, downloadAiModel, downloadAiRuntime, getReleaseInfo, openLogFolder, removeAiRuntime, removePlaceholderModel } from "@/lib/desktop";
@@ -23,6 +24,7 @@ export function ReleaseCenterDialog() {
   const runtime = useReleaseStore((state) => state.runtime);
   const setRuntime = useReleaseStore((state) => state.setRuntime);
   const runtimeAction = useReleaseStore((state) => state.runtimeAction);
+  const runtimeMessage = useReleaseStore((state) => state.runtimeMessage);
   const runtimeProgress = useReleaseStore((state) => state.runtimeProgress);
   const setRuntimeAction = useReleaseStore((state) => state.setRuntimeAction);
   const modelAction = useReleaseStore((state) => state.modelAction);
@@ -38,6 +40,22 @@ export function ReleaseCenterDialog() {
   useEffect(() => {
     if (isOpen) refreshRuntime();
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    let unlisten: (() => void) | null = null;
+    let isMounted = true;
+    void listen<{ readonly progress: number; readonly message: string }>("ai-runtime-download-progress", (event) => {
+      if (isMounted) setRuntimeAction("downloading", event.payload.progress, event.payload.message);
+    }).then((handler) => {
+      if (isMounted) unlisten = handler;
+      else handler();
+    });
+    return () => {
+      isMounted = false;
+      unlisten?.();
+    };
+  }, [isOpen, setRuntimeAction]);
 
   if (!isOpen) return null;
 
@@ -68,6 +86,7 @@ export function ReleaseCenterDialog() {
               refreshRuntime={refreshRuntime}
               runtime={runtime}
               runtimeAction={runtimeAction}
+              runtimeMessage={runtimeMessage}
               runtimeProgress={runtimeProgress}
               setModelAction={setModelAction}
               setNotice={setNotice}
@@ -100,6 +119,7 @@ function ModelsContent({
   refreshRuntime,
   runtime,
   runtimeAction,
+  runtimeMessage,
   runtimeProgress,
   setModelAction,
   setNotice,
@@ -110,28 +130,23 @@ function ModelsContent({
   readonly refreshRuntime: () => void;
   readonly runtime: RuntimeStatus | null;
   readonly runtimeAction: "idle" | "downloading" | "ready" | "failed";
+  readonly runtimeMessage: string;
   readonly runtimeProgress: number;
   readonly setModelAction: (action: "idle" | "downloading" | "ready" | "failed", progress: number) => void;
   readonly setNotice: (notice: string | null) => void;
-  readonly setRuntimeAction: (action: "idle" | "downloading" | "ready" | "failed", progress: number) => void;
+  readonly setRuntimeAction: (action: "idle" | "downloading" | "ready" | "failed", progress: number, message?: string) => void;
 }) {
   const runtimeReadyViaSystem = runtime?.aiRuntimeReady && runtime.aiRuntimeMode === "system-python";
   const canDownloadRuntime = Boolean(runtime?.aiRuntimeDownloadConfigured);
 
   const installRuntime = (): void => {
-    setRuntimeAction("downloading", 5);
-    const timer = window.setInterval(() => {
-      const current = useReleaseStore.getState().runtimeProgress;
-      setRuntimeAction("downloading", Math.min(92, current + 2));
-    }, 300);
+    setRuntimeAction("downloading", 1, "Preparing AI runtime download...");
     void downloadAiRuntime().then((path) => {
-      window.clearInterval(timer);
-      setRuntimeAction("ready", 100);
+      setRuntimeAction("ready", 100, "AI runtime is ready.");
       setNotice(`AI runtime installed: ${path}`);
       refreshRuntime();
     }).catch((error: unknown) => {
-      window.clearInterval(timer);
-      setRuntimeAction("failed", 0);
+      setRuntimeAction("failed", 0, "AI runtime download failed.");
       setNotice(error instanceof Error ? error.message : "AI runtime download failed.");
     });
   };
@@ -191,7 +206,7 @@ function ModelsContent({
               </Button>
             )}
           </div>
-          {runtimeAction === "downloading" && <ProgressBar label="Downloading runtime" progress={runtimeProgress} />}
+          {runtimeAction === "downloading" && <ProgressBar label={runtimeMessage} progress={runtimeProgress} />}
           {runtimeReadyViaSystem && <p className="mt-3 rounded border border-emerald-400/20 bg-emerald-400/5 px-3 py-2 text-xs text-emerald-200">Development fallback is ready through system Python and FFmpeg.</p>}
           {runtime && !runtime.aiRuntimeReady && <p className="mt-3 text-xs text-slate-500">{runtime.aiRuntimeDownloadConfigured ? `Download URL: ${runtime.aiRuntimeDownloadUrl}` : "Runtime download is not configured in this build. Publish the runtime zip and rebuild with CAPAMOTION_AI_RUNTIME_URL."}</p>}
         </div>

@@ -8,6 +8,7 @@ interface ReleaseState {
   view: ReleaseView;
   runtime: RuntimeStatus | null;
   runtimeProgress: number;
+  runtimeMessage: string;
   runtimeAction: "idle" | "downloading" | "ready" | "failed";
   modelProgress: number;
   modelAction: "idle" | "downloading" | "ready" | "failed";
@@ -15,7 +16,7 @@ interface ReleaseState {
   open: (view: ReleaseView) => void;
   close: () => void;
   setRuntime: (runtime: RuntimeStatus) => void;
-  setRuntimeAction: (action: ReleaseState["runtimeAction"], progress: number) => void;
+  setRuntimeAction: (action: ReleaseState["runtimeAction"], progress: number, message?: string) => void;
   setModelAction: (action: ReleaseState["modelAction"], progress: number) => void;
   setNotice: (notice: string | null) => void;
 }
@@ -25,6 +26,7 @@ export const useReleaseStore = create<ReleaseState>((set) => ({
   view: "help",
   runtime: null,
   runtimeProgress: 0,
+  runtimeMessage: "Runtime is not installed.",
   runtimeAction: "idle",
   modelProgress: 0,
   modelAction: "idle",
@@ -32,7 +34,7 @@ export const useReleaseStore = create<ReleaseState>((set) => ({
   open: (view) => set({ isOpen: true, view }),
   close: () => set({ isOpen: false }),
   setRuntime: (runtime) => set({ runtime }),
-  setRuntimeAction: (runtimeAction, runtimeProgress) => set({ runtimeAction, runtimeProgress }),
+  setRuntimeAction: (runtimeAction, runtimeProgress, runtimeMessage) => set((state) => ({ runtimeAction, runtimeProgress, runtimeMessage: runtimeMessage ?? state.runtimeMessage })),
   setModelAction: (modelAction, modelProgress) => set({ modelAction, modelProgress }),
   setNotice: (notice) => set({ notice })
 }));
