@@ -6,6 +6,7 @@ export interface RuntimeStatus {
   readonly aiRuntimeMode: "bundled" | "system-python" | "missing";
   readonly aiRuntimePath: string;
   readonly aiRuntimeDownloadUrl: string;
+  readonly aiRuntimeDownloadConfigured: boolean;
   readonly aiModel: boolean;
   readonly aiModelPath: string;
   readonly portableMode: boolean;

@@ -11,8 +11,8 @@ interface AiToolsState {
 
 export const useAiToolsStore = create<AiToolsState>((set) => ({
   isOpen: false,
-  activeTab: "text",
-  open: (activeTab = "text") => set({ isOpen: true, activeTab }),
+  activeTab: "video",
+  open: (activeTab = "video") => set({ isOpen: true, activeTab }),
   close: () => set({ isOpen: false }),
   setTab: (activeTab) => set({ activeTab })
 }));
