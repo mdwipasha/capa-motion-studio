@@ -64,7 +64,7 @@ The core editor and local AI pipeline foundation are usable: projects can be sav
 - Autosave enabled by default every 30 seconds; configurable in Settings along with default FPS and viewport background color
 - Modular importer/exporter registries: `.rma` import/export is active; ASCII FBX animation curves can be imported into the editor timeline
 - Local AI Motion Pipeline with MP4/MOV/AVI selection, drag-and-drop, metadata, responsive FFmpeg extraction progress, cancellation, logs, and original/skeleton previews
-- AI Tools panel gated by the same local runtime/model readiness as Video to Animation
+- AI Tools panel gated by local runtime/model readiness, with Video to Animation, Text to Motion, Library, Loop, and Templates in one place
 - Text to Motion draft generation from local prompt-matched presets; generated keyframes remain editable in the timeline
 - Motion Library, Animation Templates, and Auto Loop tools for quickly applying starter motions and loop-ready endings
 - Python `PoseDetector` abstraction with MediaPipe classic and MediaPipe Tasks support; reconstruction produces confidence-scored joint positions and placeholder rotations for future retargeting
@@ -107,9 +107,16 @@ Build the Windows AI runtime bundle with:
 pnpm ai:runtime -- -FfmpegDir C:\path\to\ffmpeg\bin
 ```
 
-The script creates `dist-ai-runtime/capamotion-ai-runtime-windows-x64.zip`. Publish that zip to the URL configured by `CAPAMOTION_AI_RUNTIME_URL` at build time, or to the default GitHub Releases path shown in Help - AI Models.
+The script creates `dist-ai-runtime/capamotion-ai-runtime-windows-x64.zip`. Publish that zip, then rebuild the installer with `CAPAMOTION_AI_RUNTIME_URL` pointing to the published archive:
 
-Phase 3 AI Tools use the same readiness gate. Text to Motion, Motion Library, Auto Loop, and Animation Templates appear from the toolbar only after the runtime and pose model are installed. The first Text to Motion implementation is a local prompt-to-preset draft generator, so it creates editable timeline poses without using a cloud API.
+```powershell
+$env:CAPAMOTION_AI_RUNTIME_URL="https://your-release-url/capamotion-ai-runtime-windows-x64.zip"
+pnpm release
+```
+
+If this variable is not set, the app will still support bundled sidecars and development Python/FFmpeg fallback, but the Download Runtime button is disabled instead of trying a placeholder URL.
+
+Phase 3 AI Tools use the same readiness gate. Video to Animation, Text to Motion, Motion Library, Auto Loop, and Animation Templates appear from the toolbar only after the runtime and pose model are installed. The first Text to Motion implementation is a local prompt-to-preset draft generator, so it creates editable timeline poses without using a cloud API.
 
 Release configuration registers `.rma` as a CapaMotion project type and launch arguments are validated before opening a project. Help provides About, runtime diagnostics, logs, keyboard shortcuts, model management, and update-check readiness. Interrupted sessions offer the latest cached recent project for recovery.
 

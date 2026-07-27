@@ -2,7 +2,7 @@ import type { RigType } from "@/types/project";
 import type { MotionData } from "@/types/motion";
 import type { PoseFrame } from "@/types/rig";
 
-export type AiToolTab = "text" | "library" | "loop" | "templates";
+export type AiToolTab = "video" | "text" | "library" | "loop" | "templates";
 
 export type MotionPresetCategory = "locomotion" | "action" | "emote" | "utility";
 

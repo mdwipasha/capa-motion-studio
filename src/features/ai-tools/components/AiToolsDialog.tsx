@@ -1,15 +1,17 @@
 import { useMemo, useState } from "react";
-import { BookMarked, Infinity, Library, LoaderCircle, Sparkles, Wand2, X } from "lucide-react";
+import { BookMarked, FileVideo, Infinity, Library, LoaderCircle, Sparkles, Wand2, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { applyGeneratedMotion } from "@/features/ai-tools/lib/apply-ai-tool-motion";
 import { createAutoLoopDraft, generateTextMotion, motionPresets } from "@/features/ai-tools/lib/motion-presets";
 import { useMotionStore } from "@/stores/motion-store";
 import { usePoseStore } from "@/stores/pose-store";
 import { useProjectStore } from "@/stores/project-store";
+import { useAiStore } from "@/stores/ai-store";
 import { useAiToolsStore } from "@/stores/ai-tools-store";
 import type { AiToolTab, MotionPresetCategory } from "@/types/ai-tools";
 
 const tabs: readonly { readonly id: AiToolTab; readonly label: string; readonly icon: typeof Wand2 }[] = [
+  { id: "video", label: "Video", icon: FileVideo },
   { id: "text", label: "Text", icon: Wand2 },
   { id: "library", label: "Library", icon: Library },
   { id: "loop", label: "Loop", icon: Infinity },
@@ -23,6 +25,7 @@ export function AiToolsDialog() {
   const activeTab = useAiToolsStore((state) => state.activeTab);
   const setTab = useAiToolsStore((state) => state.setTab);
   const close = useAiToolsStore((state) => state.close);
+  const setAiPanelOpen = useAiStore((state) => state.setPanelOpen);
   const project = useProjectStore((state) => state.activeProject);
   const motion = useMotionStore((state) => state.motionData);
   const poses = usePoseStore((state) => state.poses);
@@ -73,6 +76,18 @@ export function AiToolsDialog() {
 
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
           {notice && <button className="mb-4 w-full rounded border border-violet-400/20 bg-violet-400/5 px-3 py-2 text-left text-xs text-violet-100" onClick={() => setNotice(null)} type="button">{notice}</button>}
+
+          {activeTab === "video" && (
+            <section className="rounded-lg border border-white/10 bg-black/10 p-5">
+              <div className="flex items-start justify-between gap-5">
+                <div>
+                  <p className="font-medium text-slate-100">Video to Animation</p>
+                  <p className="mt-2 text-sm text-slate-400">Open the local AI Motion Pipeline for MP4, MOV, and AVI input. The runtime sidecar starts automatically when the pipeline runs.</p>
+                </div>
+                <Button onClick={() => { close(); setAiPanelOpen(true); }}><FileVideo size={15} />Open</Button>
+              </div>
+            </section>
+          )}
 
           {activeTab === "text" && (
             <div className="grid gap-5 lg:grid-cols-[1fr_280px]">

@@ -6,10 +6,13 @@ const POSE_MODEL_URL: &str = "https://storage.googleapis.com/mediapipe-models/po
 const AI_RUNTIME_EXE: &str = "capamotion-ai.exe";
 const FFMPEG_EXE: &str = "ffmpeg.exe";
 const FFPROBE_EXE: &str = "ffprobe.exe";
-const DEFAULT_AI_RUNTIME_URL: &str = "https://github.com/capamotion/capa-motion-studio/releases/download/v0.8.0/capamotion-ai-runtime-windows-x64.zip";
 
 fn ai_runtime_url() -> &'static str {
-    option_env!("CAPAMOTION_AI_RUNTIME_URL").unwrap_or(DEFAULT_AI_RUNTIME_URL)
+    option_env!("CAPAMOTION_AI_RUNTIME_URL").unwrap_or("")
+}
+
+fn ai_runtime_download_configured() -> bool {
+    !ai_runtime_url().trim().is_empty()
 }
 
 #[derive(serde::Serialize)]
@@ -22,6 +25,7 @@ struct RuntimeStatus {
     ai_runtime_mode: String,
     ai_runtime_path: String,
     ai_runtime_download_url: String,
+    ai_runtime_download_configured: bool,
     ai_model: bool,
     ai_model_path: String,
     portable_mode: bool,
@@ -145,6 +149,7 @@ fn check_runtime(app: AppHandle) -> Result<RuntimeStatus, String> {
         ai_runtime_mode: mode,
         ai_runtime_path: runtime.unwrap_or_else(|| runtime_directory(&app).unwrap_or_default().join(AI_RUNTIME_EXE)).display().to_string(),
         ai_runtime_download_url: ai_runtime_url().to_string(),
+        ai_runtime_download_configured: ai_runtime_download_configured(),
         ai_model: model.exists(),
         ai_model_path: model.display().to_string(),
         portable_mode,
@@ -286,8 +291,8 @@ fn find_file_recursive(folder: &PathBuf, file_name: &str) -> Option<PathBuf> {
 
 #[tauri::command]
 fn download_ai_runtime(app: AppHandle) -> Result<String, String> {
-    if ai_runtime_url().trim().is_empty() {
-        return Err("AI runtime download URL is not configured for this build.".to_string());
+    if !ai_runtime_download_configured() {
+        return Err("AI runtime download is not configured for this build. Build the runtime zip, publish it, then rebuild CapaMotion with CAPAMOTION_AI_RUNTIME_URL pointing to that zip.".to_string());
     }
     let runtime_dir = runtime_directory(&app)?;
     let parent = runtime_dir.parent().ok_or_else(|| "Unable to resolve runtime directory.".to_string())?.to_path_buf();
